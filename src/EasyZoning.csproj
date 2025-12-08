@@ -13,7 +13,7 @@
 		<Nullable>enable</Nullable>
 
 		<!-- NPM runner + UI build strictness -->
-		<!-- On Windows, `npm` is fine (resolves npm.cmd). Change to npm.cmd if you prefer. -->
+		<!-- On Windows, `npm` resolves npm.cmd, could also use npm.cmd-->
 		<NpmCmd>npm</NpmCmd>
 
 		<!-- Keep soft-fail so C# continues even if UI hiccups -->
@@ -103,6 +103,15 @@
 		</None>
 		<Folder Include="Utilities\" />
 	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="..\research\**\*.*">
+			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
+		<Folder Include="..\research\" />
+	</ItemGroup>
+
+
 
 	<!-- Run npm ci AFTER C# build, only when needed:
        - first time (node_modules missing), OR

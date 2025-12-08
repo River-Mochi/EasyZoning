@@ -39,10 +39,18 @@ namespace EasyZoning.Tools
 
         private NativeList<Entity> m_SelectedEntities;
 
+        // NEW: remember what tool was active before we switched to ours,
+        // so the toggle can restore it cleanly.
+        private ToolBaseSystem? m_PreviousTool;
+
         private enum Mode
         {
-            None, Select, Apply, Preview
+            None,
+            Select,
+            Apply,
+            Preview
         }
+
         private Mode m_Mode;
         private Entity m_PreviewEntity;
 
@@ -58,12 +66,12 @@ namespace EasyZoning.Tools
             {
                 log.Info("[EZ][Tool] " + msg);
             }
-            catch { }
+            catch
+            {
+            }
         }
 #else
-        private static void Dbg(string msg)
-        {
-        }
+        private static void Dbg(string msg) { }
 #endif
 
         protected override void OnCreate()
@@ -91,17 +99,23 @@ namespace EasyZoning.Tools
         {
             if (m_SelectedEntities.IsCreated)
                 m_SelectedEntities.Dispose();
+
             base.OnDestroy();
         }
 
         protected override void OnStartRunning()
         {
             base.OnStartRunning();
-            applyAction.enabled = true;
-            cancelAction.enabled = false;   // Let Esc bubble to vanilla UI
+
+            // Enable our LMB tool action; keep Cancel disabled so ESC stays with vanilla.
+            applyAction.shouldBeEnabled = true;
+            cancelAction.shouldBeEnabled = false;   // Let Esc bubble to vanilla UI
+
+            // Tool requirements
             requireZones = true;
             requireNet = Layer.Road;
             allowUnderground = true;
+
 #if DEBUG
             Dbg("OnStartRunning: tool ACTIVE");
 #endif
@@ -109,12 +123,15 @@ namespace EasyZoning.Tools
 
         protected override void OnStopRunning()
         {
-            base.OnStopRunning();
-            applyAction.enabled = false;
-            cancelAction.enabled = false;
+            // Disable our actions when tool stops
+            applyAction.shouldBeEnabled = false;
+            cancelAction.shouldBeEnabled = false;
+
             requireZones = false;
             requireNet = Layer.None;
             allowUnderground = false;
+
+            base.OnStopRunning();
 #if DEBUG
             Dbg("OnStopRunning: tool INACTIVE");
 #endif
@@ -132,7 +149,11 @@ namespace EasyZoning.Tools
             {
                 hasRoad = TryGetRoadUnderCursor(out hitEntity, out hit);
             }
-            catch { hasRoad = false; hitEntity = Entity.Null; }
+            catch
+            {
+                hasRoad = false;
+                hitEntity = Entity.Null;
+            }
 
             // UI vanilla sounds
             var haveSoundbank = m_SoundbankQuery.CalculateEntityCount() > 0;
@@ -275,6 +296,7 @@ namespace EasyZoning.Tools
                 entity = Entity.Null;
                 return false;
             }
+
             return true;
         }
 
@@ -285,10 +307,11 @@ namespace EasyZoning.Tools
             if (prefab == null || prefab.name != toolID)
             {
 #if DEBUG
-                EasyZoningMod.s_Log.Warn($"[EZ][Tool] TrySetPrefab rejected: prefab='{prefab?.name}', expected='{ToolID}'");
+                EasyZoningMod.s_Log?.Warn($"[EZ][Tool] TrySetPrefab rejected: prefab='{prefab?.name}', expected='{ToolID}'");
 #endif
                 return false;
             }
+
             m_ToolPrefab = prefab;
 #if DEBUG
             Dbg($"TrySetPrefab: accepted prefab='{prefab.name}'");
@@ -303,24 +326,46 @@ namespace EasyZoning.Tools
             m_ToolRaycastSystem.netLayerMask = Layer.Road;
         }
 
+        // NEW IMPLEMENTATION:
+        //  • When enabling: remember previous active tool and switch to ours.
+        //  • When disabling: restore previous tool, or DefaultToolSystem if unknown.
         public void SetToolEnabled(bool isEnabled)
         {
             if (m_ToolSystem == null)
                 return;
 
-            if (isEnabled && m_ToolSystem.activeTool != this)
+            if (isEnabled)
             {
+                if (m_ToolSystem.activeTool != this)
+                {
+                    m_PreviousTool = m_ToolSystem.activeTool;
 #if DEBUG
-                Dbg("SetToolEnabled(true): Activating our tool");
+                    Dbg($"SetToolEnabled(true): Activating our tool; previous={(m_PreviousTool != null ? m_PreviousTool.GetType().Name : "(null)")}");
 #endif
-                m_ToolSystem.ActivatePrefabTool(GetPrefab());
+                    m_ToolSystem.activeTool = this;
+                }
             }
-            else if (!isEnabled && m_ToolSystem.activeTool == this)
+            else
             {
+                if (m_ToolSystem.activeTool == this)
+                {
+                    var target = m_PreviousTool;
+                    if (target == null || target == this)
+                    {
+                        // Fallback to vanilla default tool if we have nothing sane stored.
+                        target = World.GetOrCreateSystemManaged<DefaultToolSystem>();
+                    }
+
 #if DEBUG
-                Dbg("SetToolEnabled(false): Deactivating our tool");
+                    Dbg($"SetToolEnabled(false): Restoring tool → {(target != null ? target.GetType().Name : "(null)")} ");
 #endif
-                m_ToolSystem.ActivatePrefabTool(null);
+                    if (target != null)
+                    {
+                        m_ToolSystem.activeTool = target;
+                    }
+
+                    m_PreviousTool = null;
+                }
             }
         }
 

@@ -65,19 +65,19 @@ namespace EasyZoning.Settings
             EasyZoningMod.VersionShort;
 #endif
 
-        private const string UrlMods = "TBD";
+        private const string UrlParadox = "https://mods.paradoxplaza.com/authors/kimosabe1/cities_skylines_2?games=cities_skylines_2&orderBy=desc&sortBy=best&time=alltime";
         private const string UrlDiscord = "https://discord.gg/HTav7ARPs2";
 
         [SettingsUIButtonGroup(kAboutLinksGroup)]
         [SettingsUIButton]
         [SettingsUISection(kAboutTab, kAboutLinksGroup)]
-        public bool OpenMods
+        public bool OpenParadox
         {
             set
             {
                 try
                 {
-                    Application.OpenURL(UrlMods);
+                    Application.OpenURL(UrlParadox);
                 }
                 catch (Exception) { }
             }

@@ -56,8 +56,8 @@ namespace EasyZoning.Settings
                 { m_Settings.GetOptionLabelLocaleID(nameof(Setting.VersionText)), "版本" },
                 { m_Settings.GetOptionDescLocaleID(nameof(Setting.VersionText)),  "当前模组版本。" },
 
-                { m_Settings.GetOptionLabelLocaleID(nameof(Setting.OpenMods)),    "Paradox Mods" },
-                { m_Settings.GetOptionDescLocaleID(nameof(Setting.OpenMods)),     "打开 Paradox Mods 页面。" },
+                { m_Settings.GetOptionLabelLocaleID(nameof(Setting.OpenParadox)),    "Paradox Mods" },
+                { m_Settings.GetOptionDescLocaleID(nameof(Setting.OpenParadox)),     "打开 Paradox Mods 页面。" },
                 { m_Settings.GetOptionLabelLocaleID(nameof(Setting.OpenDiscord)), "Discord" },
                 { m_Settings.GetOptionDescLocaleID(nameof(Setting.OpenDiscord)),  "加入模组的 Discord。" },
             };

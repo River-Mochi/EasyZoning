@@ -56,8 +56,8 @@ namespace EasyZoning.Settings
                 { m_Settings.GetOptionLabelLocaleID(nameof(Setting.VersionText)), "バージョン" },
                 { m_Settings.GetOptionDescLocaleID(nameof(Setting.VersionText)),  "現在の Mod バージョン。" },
 
-                { m_Settings.GetOptionLabelLocaleID(nameof(Setting.OpenMods)),    "Paradox Mods" },
-                { m_Settings.GetOptionDescLocaleID(nameof(Setting.OpenMods)),     "Paradox Mods を開く。" },
+                { m_Settings.GetOptionLabelLocaleID(nameof(Setting.OpenParadox)),    "Paradox Mods" },
+                { m_Settings.GetOptionDescLocaleID(nameof(Setting.OpenParadox)),     "Paradox Mods を開く。" },
                 { m_Settings.GetOptionLabelLocaleID(nameof(Setting.OpenDiscord)), "Discord" },
                 { m_Settings.GetOptionDescLocaleID(nameof(Setting.OpenDiscord)),  "Mod の Discord に参加。" },
             };

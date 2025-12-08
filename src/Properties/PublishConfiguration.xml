@@ -56,7 +56,7 @@
 
 	<!-- Versioning -->
 	<ModVersion Value="1.0.1" />
-	<GameVersion Value="1.3.*" />
+	<GameVersion Value="1.5.*" />
 
 	<!-- Dependencies / DLC (optional) -->
 	<Dependency Id="" />
