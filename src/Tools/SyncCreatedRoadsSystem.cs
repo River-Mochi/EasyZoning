@@ -24,7 +24,7 @@ namespace EasyZoning.Tools
 #if DEBUG
         private static void Dbg(string msg)
         {
-            var log = EasyZoningMod.s_Log;
+            var log = Mod.s_Log;
             if (log == null)
                 return;
             try

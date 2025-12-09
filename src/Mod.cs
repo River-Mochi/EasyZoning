@@ -1,4 +1,4 @@
-﻿// File: src/EasyZoningMod.cs
+﻿// File: src/Mod.cs
 // Purpose: Mod entrypoint; locales + settings + keybindings + tool registration (no Harmony).
 // Notes:
 //   • Locales install BEFORE Options UI so labels render correctly.
@@ -13,15 +13,13 @@ namespace EasyZoning
     using Colossal.IO.AssetDatabase;
     using Colossal.Logging;
     using EasyZoning.Settings;
-    using EasyZoning.Systems;     // <-- ensure systems live here
     using EasyZoning.Tools;       // <-- source of PanelBuilder/ToolDefinition
     using Game;
     using Game.Input;
     using Game.Modding;
     using Game.SceneFlow;
-    using ToolDefinition = EasyZoning.Tools.ToolDefinition;
 
-    public sealed class EasyZoningMod : IMod
+    public sealed class Mod : IMod
     {
         // ---- PUBLIC CONSTANTS / METADATA ----
         public const string ModName = "Easy Zoning";
@@ -41,8 +39,8 @@ namespace EasyZoning
         // Top-left floating action button (color)
         public const string MainIconPath = UiCouiRoot + "/images/ico-zones-color02.svg";
 
-        // Road Services panel button (ico-zones-color02.svg under UI/images)
-        public const string PanelIconPath = UiCouiRoot + "/images/ico-zones-color02.svg";
+        // Not used currently: Road Services panel button (ico-zones-color02.svg under UI/images)
+        // public const string PanelIconPath = UiCouiRoot + "/images/ico-zones-color02.svg";
 
         // Rebindable action IDs exposed in Options UI
         public const string kToggleToolActionName = "ToggleZoneTool";   // default Shift+Z
@@ -67,7 +65,7 @@ namespace EasyZoning
         private static bool s_ReapplyingLocale;
         private static bool s_BannerLogged;
 
-        
+
         public void OnLoad(UpdateSystem updateSystem)
         {
 
@@ -101,7 +99,7 @@ namespace EasyZoning
             }
 
             // Systems
-            updateSystem.UpdateAt<PanelBootStrapSystem>(SystemUpdatePhase.Modification4);
+            // updateSystem.UpdateAt<PanelBootStrapSystem>(SystemUpdatePhase.Modification4);
             updateSystem.UpdateAt<ZoningControllerToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<ToolHighlightSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<SyncCreatedRoadsSystem>(SystemUpdatePhase.Modification4);
@@ -110,16 +108,21 @@ namespace EasyZoning
             updateSystem.UpdateAt<KeybindHotkeySystem>(SystemUpdatePhase.ToolUpdate);
 
             // definition only; prefab created after game load
-            PanelBuilder.Initialize(force: false);
+            // PanelBuilder.Initialize(force: false);
 
-            // Register our panel button with ico-zones-color02.svg
-            PanelBuilder.RegisterTool(
-                new ToolDefinition(
-                    typeof(ZoningControllerToolSystem),
-                    ZoningControllerToolSystem.ToolID,
-                    new ToolDefinition.UI(PanelIconPath)
-                )
-            );
+            // NOTE [EZ]:
+            // Road Services panel: the icon appears. but clicking it does *not* open
+            // zoning side panel currently. For Phase1, disable this to avoid confusing players.
+            // GameTopLeft FAB + Shift+Z remain the supported entry points.
+            //
+            //PanelBuilder.RegisterTool(
+            //    new ToolDefinition(
+            //        typeof(ZoningControllerToolSystem),
+            //        ZoningControllerToolSystem.ToolID,
+            //        new ToolDefinition.UI(PanelIconPath)
+            //    )
+            //);
+
 
             var lm = GameManager.instance?.localizationManager;
             if (lm != null)

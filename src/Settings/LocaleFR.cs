@@ -43,7 +43,7 @@ namespace EasyZoning.Settings
                 { m_Settings.GetOptionDescLocaleID(nameof(Setting.ToggleZoneTool)),  "Afficher le bouton du panneau Easy Zoning (Maj+Z par défaut)." },
 
                 // Binding title in the keybinding dialog
-                { m_Settings.GetBindingKeyLocaleID(EasyZoningMod.kToggleToolActionName), "Basculer le panneau Easy Zoning" },
+                { m_Settings.GetBindingKeyLocaleID(Mod.kToggleToolActionName), "Basculer le panneau Easy Zoning" },
 
                 // Panel (Road Services tile)
                 { $"Assets.NAME[{ZoningControllerToolSystem.ToolID}]", "Easy Zoning" },

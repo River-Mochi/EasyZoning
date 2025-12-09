@@ -1,5 +1,5 @@
 // File: src/Tools/SyncBlockSystem.cs
-// Purpose: applies the preview/committed zoning depth to actual zone blocks
+// Purpose: applies the preview/committed zoning depth to zone blocks
 // respecting settings (RemoveZonedCells / RemoveOccupiedCells). Tool won’t function without it.
 //
 
@@ -51,8 +51,8 @@ namespace EasyZoning.Tools
             m_LogTick++;
             if (count != m_LastCount || (m_LogTick % 30) == 0)
             {
-                EasyZoningMod.s_Log.Info(
-                    $"[EZ][SyncBlock] blocks={count} removeOcc={EasyZoningMod.Settings?.RemoveOccupiedCells == true} removeZoned={EasyZoningMod.Settings?.RemoveZonedCells == true}");
+                Mod.s_Log.Info(
+                    $"[EZ][SyncBlock] blocks={count} removeOcc={Mod.Settings?.RemoveOccupiedCells == true} removeZoned={Mod.Settings?.RemoveZonedCells == true}");
                 m_LastCount = count;
             }
 #endif
@@ -112,13 +112,13 @@ namespace EasyZoning.Tools
                     return;
 
                 // Respect settings
-                if (EasyZoningMod.Settings != null)
+                if (Mod.Settings != null)
                 {
-                    if (EasyZoningMod.Settings.RemoveOccupiedCells &&
+                    if (Mod.Settings.RemoveOccupiedCells &&
                         IsAnyCellOccupied(CellLookup[blockEntity], block, validArea))
                         return;
 
-                    if (EasyZoningMod.Settings.RemoveZonedCells &&
+                    if (Mod.Settings.RemoveZonedCells &&
                         IsAnyCellZoned(CellLookup[blockEntity], block, validArea))
                         return;
                 }

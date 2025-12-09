@@ -1,4 +1,9 @@
 // File: src/Systems/PanelBuilder.cs
+
+// NOTE: PanelBuilder is not used in Phase 1 of Easy Zoning.
+// All calls are commented out in Mod.OnLoad; RoadServices button is disabled.
+// Keep this file for possible Phase 2 re-enable.
+
 // Purpose:
 //   Build/Register the clickable EasyZoning tools in RoadsServices Panel:
 //     - Find a donor button in RoadsServices (ex: Wide Sidewalk / Crosswalk).
@@ -55,7 +60,7 @@ namespace EasyZoning.Systems
         [Conditional("DEBUG")]
         private static void Dbg(string message)
         {
-            var log = EasyZoningMod.s_Log;
+            var log = Mod.s_Log;
             if (log == null)
                 return;
             try
@@ -66,7 +71,7 @@ namespace EasyZoning.Systems
         }
 
         // --- Init -------------------------------------------------------------
-        // Called from EasyZoningMod.OnLoad(). Clears caches so hot reload works.
+        // Called from Mod.OnLoad(). Clears caches so hot reload works.
         public static void Initialize(bool force = false)
         {
             if (!force && s_World != null)
@@ -88,19 +93,19 @@ namespace EasyZoning.Systems
         {
             if (def.Type == null || !typeof(ToolBaseSystem).IsAssignableFrom(def.Type))
             {
-                EasyZoningMod.s_Log.Error("[EZ][Panel] RegisterTool: Type must inherit ToolBaseSystem.");
+                Mod.s_Log.Error("[EZ][Panel] RegisterTool: Type must inherit ToolBaseSystem.");
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(def.ToolID))
             {
-                EasyZoningMod.s_Log.Error("[EZ][Panel] RegisterTool: ToolID must be non-empty.");
+                Mod.s_Log.Error("[EZ][Panel] RegisterTool: ToolID must be non-empty.");
                 return;
             }
 
             if (HasTool(def) || HasTool(def.ToolID))
             {
-                EasyZoningMod.s_Log.Error($"[EZ][Panel] RegisterTool: \"{def.ToolID}\" already registered.");
+                Mod.s_Log.Error($"[EZ][Panel] RegisterTool: \"{def.ToolID}\" already registered.");
                 return;
             }
 
@@ -119,7 +124,7 @@ namespace EasyZoning.Systems
 
             if (s_PrefabSystem == null)
             {
-                EasyZoningMod.s_Log.Error("[EZ][Panel] PrefabSystem not available.");
+                Mod.s_Log.Error("[EZ][Panel] PrefabSystem not available.");
                 return;
             }
 
@@ -128,7 +133,7 @@ namespace EasyZoning.Systems
                 !TryResolveDonor(s_PrefabSystem, out s_DonorPrefab, out s_DonorUI))
             {
                 if (logIfNoDonor)
-                    EasyZoningMod.s_Log.Error("[EZ][Panel] Could not find RoadsServices donor. Will retry next frame.");
+                    Mod.s_Log.Error("[EZ][Panel] Could not find RoadsServices donor. Will retry next frame.");
                 return;
             }
 
@@ -173,7 +178,7 @@ namespace EasyZoning.Systems
                     bool attached = toolSystem != null && toolSystem.TrySetPrefab(clonePrefab);
                     if (!attached)
                     {
-                        EasyZoningMod.s_Log.Error(
+                        Mod.s_Log.Error(
                             $"[EZ][Panel] Failed to attach prefab for \"{def.ToolID}\" (toolSystem={(toolSystem?.GetType().Name ?? "null")})");
                         continue;
                     }
@@ -183,7 +188,7 @@ namespace EasyZoning.Systems
                 }
                 catch (Exception ex)
                 {
-                    EasyZoningMod.s_Log.Error($"[EZ][Panel] Could not create button for {def.ToolID}: {ex}");
+                    Mod.s_Log.Error($"[EZ][Panel] Could not create button for {def.ToolID}: {ex}");
                 }
             }
 
@@ -202,7 +207,7 @@ namespace EasyZoning.Systems
         {
             if (s_PrefabSystem == null || s_DonorPrefab == null)
             {
-                EasyZoningMod.s_Log.Error("[EZ][Panel] ApplyPlacementDataAfterLoad: missing PrefabSystem or donor.");
+                Mod.s_Log.Error("[EZ][Panel] ApplyPlacementDataAfterLoad: missing PrefabSystem or donor.");
                 return;
             }
 
@@ -236,7 +241,7 @@ namespace EasyZoning.Systems
                 }
                 catch (Exception ex)
                 {
-                    EasyZoningMod.s_Log.Error($"[EZ][Panel] Could not apply PlaceableNetData for {def.ToolID}: {ex}");
+                    Mod.s_Log.Error($"[EZ][Panel] Could not apply PlaceableNetData for {def.ToolID}: {ex}");
                 }
             }
         }
@@ -275,7 +280,7 @@ namespace EasyZoning.Systems
             // 2) DEBUG ONLY — reflection scan
             if (TryReflectionDonor(prefabSystem, out donorPrefab, out donorUI))
             {
-                EasyZoningMod.s_Log.Warn("[EZ][Panel] Fallback donor used via reflection (DEBUG).");
+                Mod.s_Log.Warn("[EZ][Panel] Fallback donor used via reflection (DEBUG).");
                 CacheDonor(donorPrefab!, donorUI!);
                 return true;
             }
@@ -381,7 +386,7 @@ namespace EasyZoning.Systems
             }
             catch (Exception ex)
             {
-                EasyZoningMod.s_Log.Warn("[EZ][Panel] Reflection donor scan failed (DEBUG): " + ex.Message);
+                Mod.s_Log.Warn("[EZ][Panel] Reflection donor scan failed (DEBUG): " + ex.Message);
             }
             return false;
         }

@@ -1,9 +1,8 @@
 ﻿// File: src/Tools/ZoningControllerToolSystem.cs
 // Purpose:
-//   Runtime tool. RMB toggles preview over valid roads (Left<->Right or Both<->None).
-//   LMB confirms. ESC is left to vanilla UI.
+//   Runtime tool. LMB toggles/apply zoning modes over valid roads.
+//   ESC is left to vanilla UI.
 //   Preview always reflects the current mode for the hovered segment.
-//
 
 namespace EasyZoning.Tools
 {
@@ -18,7 +17,6 @@ namespace EasyZoning.Tools
     using Unity.Entities;
     using Unity.Jobs;
     using Unity.Mathematics;
-    using UnityEngine.InputSystem;
 
     public partial class ZoningControllerToolSystem : ToolBaseSystem
     {
@@ -39,7 +37,7 @@ namespace EasyZoning.Tools
 
         private NativeList<Entity> m_SelectedEntities;
 
-        // NEW: remember what tool was active before we switched to ours,
+        // Remember what tool was active before we switched to ours,
         // so the toggle can restore it cleanly.
         private ToolBaseSystem? m_PreviousTool;
 
@@ -59,7 +57,7 @@ namespace EasyZoning.Tools
 #if DEBUG
         private static void Dbg(string msg)
         {
-            var log = EasyZoningMod.s_Log;
+            var log = Mod.s_Log;
             if (log == null)
                 return;
             try
@@ -161,37 +159,8 @@ namespace EasyZoning.Tools
             if (haveSoundbank)
                 soundbank = m_SoundbankQuery.GetSingleton<ToolUXSoundSettingsData>();
 
-            // RMB toggling (raw). ESC not handled here.
-            bool rmbPressed = Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame;
-
-            if (rmbPressed && hasRoad)
-            {
-                // Ensure hovered entity is selected so the flip previews immediately
-                if (m_PreviewEntity == Entity.Null || m_PreviewEntity != hitEntity)
-                {
-                    if (m_PreviewEntity != Entity.Null)
-                        m_Highlight.HighlightEntity(m_PreviewEntity, false);
-
-                    m_SelectedEntities.Clear();
-                    m_Highlight.HighlightEntity(hitEntity, true);
-                    m_SelectedEntities.Add(hitEntity);
-                    m_PreviewEntity = hitEntity;
-                }
-                else if (!m_SelectedEntities.Contains(hitEntity))
-                {
-                    m_SelectedEntities.Add(hitEntity);
-                    m_Highlight.HighlightEntity(hitEntity, true);
-                }
-
-                // Left<->Right when on a side; otherwise Both<->None
-                m_UISystem.RmbPreviewToggle();
-
-                if (haveSoundbank)
-                    AudioManager.instance.PlayUISound(soundbank.m_SnapSound);
-
-                m_Mode = Mode.Preview; // LMB confirms
-            }
-            else if (applyAction.WasPressedThisFrame() || applyAction.IsPressed())
+            // LMB only: select / apply. RMB is NOT handled here; vanilla can use it.
+            if (applyAction.WasPressedThisFrame() || applyAction.IsPressed())
             {
                 m_Mode = Mode.Select;
             }
@@ -236,12 +205,23 @@ namespace EasyZoning.Tools
                     }
                     break;
 
+                // LMB applies selected icon cells or clears that side.
                 case Mode.Apply:
                     {
+                        var previewLookup = GetComponentLookup<ZoningPreviewComponent>(true);
+                        var depthLookup = GetComponentLookup<ZoningDepthComponent>(false);
+
+#if DEBUG
+                        var d = Depths;
+                        Dbg($"Apply: Depths=({d.x},{d.y}) SelectedCount={m_SelectedEntities.Length}");
+#endif
+
                         JobHandle setJob = new SetZoningDepthJob
                         {
-                            ZoningPreviewLookup = GetComponentLookup<ZoningPreviewComponent>(true),
                             Entities = m_SelectedEntities.AsArray().AsReadOnly(),
+                            ZoningPreviewLookup = previewLookup,
+                            DepthLookup = depthLookup,
+                            ToolDepths = Depths,
                             ECB = ecb
                         }.Schedule(inputDeps);
 
@@ -258,13 +238,15 @@ namespace EasyZoning.Tools
             }
 
             var tempLookup = GetComponentLookup<ZoningPreviewComponent>(true);
+            var depthLookupForPreview = GetComponentLookup<ZoningDepthComponent>(true);
 
             JobHandle syncTempJob = new SyncTempJob
             {
                 ECB = m_ToolOutputBarrier.CreateCommandBuffer().AsParallelWriter(),
                 ZoningPreviewLookup = tempLookup,
+                DepthLookup = depthLookupForPreview,
                 SelectedEntities = m_SelectedEntities.AsArray().AsReadOnly(),
-                Depths = Depths
+                ToolDepths = Depths
             }.Schedule(m_SelectedEntities.Length, 32, inputDeps);
 
             inputDeps = JobHandle.CombineDependencies(inputDeps, syncTempJob);
@@ -307,7 +289,7 @@ namespace EasyZoning.Tools
             if (prefab == null || prefab.name != toolID)
             {
 #if DEBUG
-                EasyZoningMod.s_Log?.Warn($"[EZ][Tool] TrySetPrefab rejected: prefab='{prefab?.name}', expected='{ToolID}'");
+                Mod.s_Log?.Warn($"[EZ][Tool] TrySetPrefab rejected: prefab='{prefab?.name}', expected='{ToolID}'");
 #endif
                 return false;
             }
@@ -326,9 +308,8 @@ namespace EasyZoning.Tools
             m_ToolRaycastSystem.netLayerMask = Layer.Road;
         }
 
-        // NEW IMPLEMENTATION:
-        //  • When enabling: remember previous active tool and switch to ours.
-        //  • When disabling: restore previous tool, or DefaultToolSystem if unknown.
+        // When enabling: remember previous active tool and switch to ours.
+        // When disabling: restore previous tool, or DefaultToolSystem if unknown.
         public void SetToolEnabled(bool isEnabled)
         {
             if (m_ToolSystem == null)
@@ -357,7 +338,7 @@ namespace EasyZoning.Tools
                     }
 
 #if DEBUG
-                    Dbg($"SetToolEnabled(false): Restoring tool → {(target != null ? target.GetType().Name : "(null)")} ");
+                    Dbg($"SetToolEnabled(false): Restoring tool → {(target != null ? target.GetType().Name : "(null)")}");
 #endif
                     if (target != null)
                     {
@@ -373,23 +354,58 @@ namespace EasyZoning.Tools
         {
             public EntityCommandBuffer.ParallelWriter ECB;
             public ComponentLookup<ZoningPreviewComponent> ZoningPreviewLookup;
+            public ComponentLookup<ZoningDepthComponent> DepthLookup;
             public NativeArray<Entity>.ReadOnly SelectedEntities;
-            public int2 Depths;
+            public int2 ToolDepths;
 
             public void Execute(int index)
             {
                 Entity e = SelectedEntities[index];
 
+                int2 current = default;
+                bool hasDepth = DepthLookup.TryGetComponent(e, out var existing);
+                if (hasDepth)
+                    current = existing.Depths;
+
+                const int fullDepth = 6;
+
+                bool wantLeft = ToolDepths.x > 0;
+                bool wantRight = ToolDepths.y > 0;
+
+                bool anyOn = current.x > 0 || current.y > 0;
+                bool allOff = current.x == 0 && current.y == 0;
+
+                int2 preview = current;
+
+                if (!wantLeft && !wantRight)
+                {
+                    // NONE icon: toggle — if all off, fill both; otherwise clear
+                    preview = allOff ? new int2(fullDepth, fullDepth) : default;
+                }
+                else if (wantLeft && wantRight)
+                {
+                    // BOTH icon: toggle — if any side on, clear; if both off, fill both
+                    preview = anyOn ? default : new int2(fullDepth, fullDepth);
+                }
+                else if (wantLeft && !wantRight)
+                {
+                    preview.x = (current.x == 0) ? fullDepth : 0;
+                }
+                else // !wantLeft && wantRight
+                {
+                    preview.y = (current.y == 0) ? fullDepth : 0;
+                }
+
                 if (ZoningPreviewLookup.TryGetComponent(e, out ZoningPreviewComponent data))
                 {
-                    if (!math.all(data.Depths == Depths))
+                    if (!math.all(data.Depths == preview))
                     {
-                        ECB.SetComponent(index, e, new ZoningPreviewComponent { Depths = Depths });
+                        ECB.SetComponent(index, e, new ZoningPreviewComponent { Depths = preview });
                     }
                 }
                 else
                 {
-                    ECB.AddComponent(index, e, new ZoningPreviewComponent { Depths = Depths });
+                    ECB.AddComponent(index, e, new ZoningPreviewComponent { Depths = preview });
                 }
 
                 ECB.AddComponent<Updated>(index, e);
@@ -417,17 +433,64 @@ namespace EasyZoning.Tools
         {
             public NativeArray<Entity>.ReadOnly Entities;
             public ComponentLookup<ZoningPreviewComponent> ZoningPreviewLookup;
+            public ComponentLookup<ZoningDepthComponent> DepthLookup;
+            public int2 ToolDepths; // x = left bit, y = right bit
             public EntityCommandBuffer ECB;
 
             public void Execute()
             {
+                const int fullDepth = 6;
+
+                bool wantLeft = ToolDepths.x > 0;
+                bool wantRight = ToolDepths.y > 0;
+
                 foreach (Entity e in Entities)
                 {
-                    if (!ZoningPreviewLookup.TryGetComponent(e, out ZoningPreviewComponent temp))
-                        continue;
+                    // Remove any preview we left on the entity
+                    if (ZoningPreviewLookup.HasComponent(e))
+                    {
+                        ECB.RemoveComponent<ZoningPreviewComponent>(e);
+                    }
 
-                    ECB.RemoveComponent<ZoningPreviewComponent>(e);
-                    ECB.AddComponent(e, new ZoningDepthComponent { Depths = temp.Depths });
+                    int2 current = default;
+                    bool hasDepth = DepthLookup.TryGetComponent(e, out var existing);
+                    if (hasDepth)
+                        current = existing.Depths;
+
+                    int2 newDepths = current;
+
+                    bool anyOn = current.x > 0 || current.y > 0;
+                    bool allOff = current.x == 0 && current.y == 0;
+
+                    if (!wantLeft && !wantRight)
+                    {
+                        // NONE icon: toggle — if all off, fill both; otherwise clear
+                        newDepths = allOff ? new int2(fullDepth, fullDepth) : default;
+                    }
+                    else if (wantLeft && wantRight)
+                    {
+                        // BOTH icon: toggle — if any side on, clear; if both off, fill both
+                        newDepths = anyOn ? default : new int2(fullDepth, fullDepth);
+                    }
+                    else if (wantLeft && !wantRight)
+                    {
+                        // Left-only: toggle left, leave right as-is
+                        newDepths.x = (current.x == 0) ? fullDepth : 0;
+                    }
+                    else // !wantLeft && wantRight
+                    {
+                        // Right-only: toggle right, leave left as-is
+                        newDepths.y = (current.y == 0) ? fullDepth : 0;
+                    }
+
+                    if (hasDepth)
+                    {
+                        ECB.SetComponent(e, new ZoningDepthComponent { Depths = newDepths });
+                    }
+                    else
+                    {
+                        ECB.AddComponent(e, new ZoningDepthComponent { Depths = newDepths });
+                    }
                 }
             }
         }

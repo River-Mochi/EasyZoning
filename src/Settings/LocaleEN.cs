@@ -19,7 +19,7 @@ namespace EasyZoning.Settings
             var d = new Dictionary<string, string>
             {
                 // Options title (single source of truth from Mod.cs)
-                { m_Setting.GetSettingsLocaleID(), Mod.ModName + " " + Mod.ModTag },
+                { m_Settings.GetSettingsLocaleID(), Mod.ModName + " " + Mod.ModTag },
 
                 // Tabs
                 { m_Settings.GetOptionTabLocaleID(Setting.kActionsTab), "Actions" },
@@ -43,12 +43,16 @@ namespace EasyZoning.Settings
                 { m_Settings.GetOptionDescLocaleID(nameof(Setting.ToggleZoneTool)),  "Show the Easy Zoning panel button (default Shift+Z)." },
 
                 // Binding title in the keybinding dialog
-                { m_Settings.GetBindingKeyLocaleID(EasyZoningMod.kToggleToolActionName), "Toggle Easy Zoning Button Panel" },
+                { m_Settings.GetBindingKeyLocaleID(Mod.kToggleToolActionName), "Toggle Easy Zoning Button Panel" },
 
                 // Panel (Road Services tile)
-                { $"Assets.NAME[{ZoningControllerToolSystem.ToolID}]", "Easy Zoning" },
+                //{ $"Assets.NAME[{ZoningControllerToolSystem.ToolID}]", "Easy Zoning" },
+                //{ $"Assets.DESCRIPTION[{ZoningControllerToolSystem.ToolID}]",
+                //  "Choose zoning for roads: both, left, right, or none.\nRight-click flips; left-click applies." },
+
                 { $"Assets.DESCRIPTION[{ZoningControllerToolSystem.ToolID}]",
-                  "Choose zoning for roads: both, left, right, or none.\nRight-click flips; left-click applies." },
+                    "Change zoning for roads: both, left, right, or none.\n" +
+                    "Left-click applies. Drag along a road to update multiple segments." },
 
                 // About tab labels
                 { m_Settings.GetOptionLabelLocaleID(nameof(Setting.NameText)),    "Mod name" },

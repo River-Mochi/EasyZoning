@@ -1,8 +1,6 @@
 // File: src/Tools/ToolHighlightSystem.cs
 // Purpose: track which road entities are "highlighted" by our zoning tool (hover / multi-select).
 //   Just track & poke Updated on changes. Clear on shutdown.
-//
-
 
 namespace EasyZoning.Tools
 {

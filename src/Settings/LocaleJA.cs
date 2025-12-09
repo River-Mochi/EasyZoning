@@ -43,7 +43,7 @@ namespace EasyZoning.Settings
                 { m_Settings.GetOptionDescLocaleID(nameof(Setting.ToggleZoneTool)),  "Easy Zoning のパネルボタンを表示（既定は Shift+Z）。" },
 
                 // Binding title in the keybinding dialog
-                { m_Settings.GetBindingKeyLocaleID(EasyZoningMod.kToggleToolActionName), "Easy Zoning パネル切替" },
+                { m_Settings.GetBindingKeyLocaleID(Mod.kToggleToolActionName), "Easy Zoning パネル切替" },
 
                 // Panel (Road Services tile)
                 { $"Assets.NAME[{ZoningControllerToolSystem.ToolID}]", "Easy Zoning" },

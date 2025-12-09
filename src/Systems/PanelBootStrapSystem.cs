@@ -3,6 +3,10 @@
 //   Wait until a RoadsServices donor/anchor exists, then call PanelBuilder.InstantiateTools().
 //   Arms only after a game load, then turns itself off.
 
+// NOTE: PanelBuilder is not used in Phase 1 of Easy Zoning.
+// All calls are commented out in Mod.OnLoad; RoadServices button is disabled.
+// Keep this file for possible Phase 2 re-enable.
+
 
 namespace EasyZoning.Systems
 {
@@ -26,7 +30,7 @@ namespace EasyZoning.Systems
 #if DEBUG
         private static void Dbg(string msg)
         {
-            var log = EasyZoningMod.s_Log;
+            var log = Mod.s_Log;
             if (log != null)
             {
                 try
@@ -115,7 +119,7 @@ namespace EasyZoning.Systems
 
             if (m_Tries >= MaxTries)
             {
-                EasyZoningMod.s_Log.Error("[EZ][Bootstrap] Giving up; RoadsServices donor never appeared.");
+                Mod.s_Log.Error("[EZ][Bootstrap] Giving up; RoadsServices donor never appeared.");
                 m_Armed = false;
                 Enabled = false;
             }

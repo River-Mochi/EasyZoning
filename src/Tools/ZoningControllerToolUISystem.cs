@@ -4,7 +4,6 @@
 //  • Handle triggers (Change/Flip/Toggle) with null guards.
 //  • Show the “Zone Change” section when our tool is active OR a RoadPrefab is active.
 
-
 namespace EasyZoning.Tools
 {
     using Colossal.UI.Binding;
@@ -27,32 +26,54 @@ namespace EasyZoning.Tools
 
         public int2 ToolDepths
         {
-            get => new(
-                ((ZoningMode)m_ToolZoningMode.value & ZoningMode.Left) == ZoningMode.Left ? 6 : 0,
-                ((ZoningMode)m_ToolZoningMode.value & ZoningMode.Right) == ZoningMode.Right ? 6 : 0);
+            get
+            {
+                var mode = (ZoningMode)m_ToolZoningMode.value;
+
+                // Engine: x = LEFT, y = RIGHT
+                return new int2(
+                    (mode & ZoningMode.Left) == ZoningMode.Left ? 6 : 0,  // x → left side
+                    (mode & ZoningMode.Right) == ZoningMode.Right ? 6 : 0 // y → right side
+                );
+            }
             set
             {
-                var mode = ZoningMode.Both;
-                if (value.x == 0)
-                    mode ^= ZoningMode.Left;
-                if (value.y == 0)
-                    mode ^= ZoningMode.Right;
+                var mode = ZoningMode.None;
+
+                // value.x → left side
+                if (value.x > 0)
+                    mode |= ZoningMode.Left;
+
+                // value.y → right side
+                if (value.y > 0)
+                    mode |= ZoningMode.Right;
+
                 SetToolZoningMode(mode);
             }
         }
 
         public int2 RoadDepths
         {
-            get => new(
-                ((ZoningMode)m_RoadZoningMode.value & ZoningMode.Left) == ZoningMode.Left ? 6 : 0,
-                ((ZoningMode)m_RoadZoningMode.value & ZoningMode.Right) == ZoningMode.Right ? 6 : 0);
+            get
+            {
+                var mode = (ZoningMode)m_RoadZoningMode.value;
+
+                // Engine: x = LEFT, y = RIGHT
+                return new int2(
+                    (mode & ZoningMode.Left) == ZoningMode.Left ? 6 : 0,
+                    (mode & ZoningMode.Right) == ZoningMode.Right ? 6 : 0
+                );
+            }
             set
             {
-                var mode = ZoningMode.Both;
-                if (value.x == 0)
-                    mode ^= ZoningMode.Left;
-                if (value.y == 0)
-                    mode ^= ZoningMode.Right;
+                var mode = ZoningMode.None;
+
+                if (value.x > 0)
+                    mode |= ZoningMode.Left;
+
+                if (value.y > 0)
+                    mode |= ZoningMode.Right;
+
                 ChangeRoadZoningMode((int)mode);
             }
         }
@@ -60,7 +81,7 @@ namespace EasyZoning.Tools
 #if DEBUG
         private static void Dbg(string msg)
         {
-            var log = EasyZoningMod.s_Log;
+            var log = Mod.s_Log;
             if (log == null)
                 return;
             try
@@ -69,27 +90,36 @@ namespace EasyZoning.Tools
             }
             catch { }
         }
+
         private static string ModeToStr(ZoningMode z) =>
-            z == ZoningMode.Both ? "Both" : z == ZoningMode.Left ? "Left" : z == ZoningMode.Right ? "Right" : "None";
-#else
-        private static void Dbg(string msg)
+            z == ZoningMode.Both ? "Both"
+            : z == ZoningMode.Left ? "Left"
+            : z == ZoningMode.Right ? "Right"
+            : "None";
+
+        private void LogToolDepths(string tag)
         {
+            var mode = (ZoningMode)m_ToolZoningMode.value;
+            var d = ToolDepths;
+            Dbg($"{tag}: ToolZoningMode={ModeToStr(mode)} ToolDepths=({d.x},{d.y})");
         }
+#else
+        private static void Dbg(string msg) { }
 #endif
 
         protected override void OnCreate()
         {
             base.OnCreate();
 
-            AddBinding(m_ToolZoningMode = new ValueBinding<int>(EasyZoningMod.ModID, "ToolZoningMode", (int)ZoningMode.Both));
-            AddBinding(m_RoadZoningMode = new ValueBinding<int>(EasyZoningMod.ModID, "RoadZoningMode", (int)ZoningMode.Both));
-            AddBinding(m_IsRoadPrefab = new ValueBinding<bool>(EasyZoningMod.ModID, "IsRoadPrefab", false)); // “should show section”
+            AddBinding(m_ToolZoningMode = new ValueBinding<int>(Mod.ModID, "ToolZoningMode", (int)ZoningMode.Both));
+            AddBinding(m_RoadZoningMode = new ValueBinding<int>(Mod.ModID, "RoadZoningMode", (int)ZoningMode.Both));
+            AddBinding(m_IsRoadPrefab = new ValueBinding<bool>(Mod.ModID, "IsRoadPrefab", false)); // “should show section”
 
-            AddBinding(new TriggerBinding<int>(EasyZoningMod.ModID, "ChangeRoadZoningMode", ChangeRoadZoningMode));
-            AddBinding(new TriggerBinding<int>(EasyZoningMod.ModID, "ChangeToolZoningMode", ChangeToolZoningMode));
-            AddBinding(new TriggerBinding(EasyZoningMod.ModID, "FlipToolBothMode", FlipToolBothMode));
-            AddBinding(new TriggerBinding(EasyZoningMod.ModID, "FlipRoadBothMode", FlipRoadBothMode));
-            AddBinding(new TriggerBinding(EasyZoningMod.ModID, "ToggleZoneControllerTool", ToggleTool));
+            AddBinding(new TriggerBinding<int>(Mod.ModID, "ChangeRoadZoningMode", ChangeRoadZoningMode));
+            AddBinding(new TriggerBinding<int>(Mod.ModID, "ChangeToolZoningMode", ChangeToolZoningMode));
+            AddBinding(new TriggerBinding(Mod.ModID, "FlipToolBothMode", FlipToolBothMode));
+            AddBinding(new TriggerBinding(Mod.ModID, "FlipRoadBothMode", FlipRoadBothMode));
+            AddBinding(new TriggerBinding(Mod.ModID, "ToggleZoneControllerTool", ToggleTool));
 
             try
             {
@@ -217,6 +247,7 @@ namespace EasyZoning.Tools
                 m_ToolZoningMode.Update((int)next);
 #if DEBUG
                 Dbg($"FlipToolBothMode → Tool={ModeToStr(next)}");
+                LogToolDepths("FlipToolBothMode");
 #endif
             }
             catch { }
@@ -241,7 +272,8 @@ namespace EasyZoning.Tools
             {
                 m_ToolZoningMode.Update(value);
 #if DEBUG
-                Dbg($"ChangeToolZoningMode → Tool={ModeToStr((ZoningMode)value)}");
+                Dbg($"ChangeToolZoningMode → Tool={ModeToStr((ZoningMode)value)} rawValue={value}");
+                LogToolDepths("ChangeToolZoningMode");
 #endif
             }
             catch { }
@@ -253,7 +285,7 @@ namespace EasyZoning.Tools
             {
                 m_RoadZoningMode.Update(value);
 #if DEBUG
-                Dbg($"ChangeRoadZoningMode → Road={ModeToStr((ZoningMode)value)}");
+                Dbg($"ChangeRoadZoningMode → Road={ModeToStr((ZoningMode)value)} rawValue={value}");
 #endif
             }
             catch { }
@@ -266,6 +298,7 @@ namespace EasyZoning.Tools
                 m_ToolZoningMode.Update((int)mode);
 #if DEBUG
                 Dbg($"SetToolZoningMode → Tool={ModeToStr(mode)}");
+                LogToolDepths("SetToolZoningMode");
 #endif
             }
             catch { }
@@ -280,6 +313,7 @@ namespace EasyZoning.Tools
                 m_ToolZoningMode.Update((int)next);
 #if DEBUG
                 Dbg($"FlipToolBothOrNone → Tool={ModeToStr(next)}");
+                LogToolDepths("FlipToolBothOrNone");
 #endif
             }
             catch { }
@@ -297,11 +331,13 @@ namespace EasyZoning.Tools
                 m_ToolZoningMode.Update((int)next);
 #if DEBUG
                 Dbg($"InvertZoningSideOnly → Tool={ModeToStr(next)}");
+                LogToolDepths("InvertZoningSideOnly");
 #endif
             }
             catch { }
         }
 
+        // NOTE: RmbPreviewToggle is now UNUSED in the tool; RMB is vanilla-only again.
         public void RmbPreviewToggle()
         {
             try

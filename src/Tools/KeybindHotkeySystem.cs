@@ -20,7 +20,7 @@ namespace EasyZoning.Tools
         {
             try
             {
-                var log = EasyZoningMod.s_Log;
+                var log = Mod.s_Log;
                 if (log != null)
                     log.Info("[EZ][Hotkeys] " + message);
             }
@@ -37,7 +37,7 @@ namespace EasyZoning.Tools
             base.OnCreate();
 
             m_Tool = World.GetOrCreateSystemManaged<ZoningControllerToolSystem>();
-            m_Toggle = EasyZoningMod.ToggleToolAction;
+            m_Toggle = Mod.ToggleToolAction;
 
             DebugInit(); // becomes a no-op in Release
         }

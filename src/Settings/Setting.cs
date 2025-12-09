@@ -1,7 +1,7 @@
 // File: src/Settings/Setting.cs
-// Purpose: Options UI + keybinding definition (CO API). One rebindable entry.
-// RMB stays vanilla cancelAction, not exposed in Options.
-
+// Purpose: Options UI + One rebindable entry (Shift+Z).
+// Note: RMB is *not* declared here; the Game’s own RMB/cancel bindings remain vanilla.
+// Later in the tool, the RMB is read for preview flip.
 namespace EasyZoning.Settings
 {
     using System;
@@ -20,7 +20,7 @@ namespace EasyZoning.Settings
     [SettingsUIShowGroupName(kToggleGroup, kKeybindingGroup)]
 
     // Declare ONLY the keyboard action (Shift+Z). RMB is vanilla cancelAction.
-    [SettingsUIKeyboardAction(EasyZoningMod.kToggleToolActionName, ActionType.Button, usages: new[] { "Game" })]
+    [SettingsUIKeyboardAction(Mod.kToggleToolActionName, ActionType.Button, usages: new[] { "Game" })]
     public sealed class Setting : ModSetting
     {
         // Tabs
@@ -45,7 +45,7 @@ namespace EasyZoning.Settings
 
         // --- Key bindings (only Shift+Z exposed) ---
 
-        [SettingsUIKeyboardBinding(BindingKeyboard.Z, EasyZoningMod.kToggleToolActionName, shift: true)]
+        [SettingsUIKeyboardBinding(BindingKeyboard.Z, Mod.kToggleToolActionName, shift: true)]
         [SettingsUISection(kActionsTab, kKeybindingGroup)]
         public ProxyBinding ToggleZoneTool
         {
@@ -60,9 +60,9 @@ namespace EasyZoning.Settings
         [SettingsUISection(kAboutTab, kAboutInfoGroup)]
         public string VersionText =>
 #if DEBUG
-            EasyZoningMod.ModVersion + " (DEBUG)";
+            Mod.ModVersion + " (DEBUG)";
 #else
-            EasyZoningMod.ModVersion;
+            Mod.ModVersion;
 #endif
 
         private const string UrlParadox = "https://mods.paradoxplaza.com/authors/kimosabe1/cities_skylines_2?games=cities_skylines_2&orderBy=desc&sortBy=best&time=alltime";
