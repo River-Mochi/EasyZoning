@@ -19,7 +19,7 @@ namespace EasyZoning.Settings
             var d = new Dictionary<string, string>
             {
                 // Options title (single source of truth from Mod.cs)
-                { m_Setting.GetSettingsLocaleID(), Mod.ModName + " " + Mod.ModTag },
+                { m_Settings.GetSettingsLocaleID(), Mod.ModName + " " + Mod.ModTag },
 
                 // Tabs
                 { m_Settings.GetOptionTabLocaleID(Setting.kActionsTab), "Actions" },
