@@ -8,11 +8,12 @@
 namespace EasyZoning
 {
     using System.Collections.Generic; // HashSet
+    using System.Reflection;
     using Colossal;
     using Colossal.IO.AssetDatabase;
     using Colossal.Logging;
     using EasyZoning.Settings;
-    using EasyZoning.Systems;     // <-- ensure your systems live here
+    using EasyZoning.Systems;     // <-- ensure systems live here
     using EasyZoning.Tools;       // <-- source of PanelBuilder/ToolDefinition
     using Game;
     using Game.Input;
@@ -22,7 +23,17 @@ namespace EasyZoning
 
     public sealed class EasyZoningMod : IMod
     {
+        // ---- PUBLIC CONSTANTS / METADATA ----
+        public const string ModName = "Easy Zoning";
         public const string ModID = "EasyZoning";
+        public const string ModTag = "[EZ]";
+
+        /// <summary>
+        /// Read Version from .csproj (3-part), fallback to "1.0.0".
+        /// </summary>
+        public static readonly string ModVersion =
+            Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
+
 
         // COUI base
         public const string UiCouiRoot = "coui://ui-mods";
@@ -30,14 +41,15 @@ namespace EasyZoning
         // Top-left floating action button (color)
         public const string MainIconPath = UiCouiRoot + "/images/ico-zones-color02.svg";
 
-        // Road Services panel button (MapGrid.svg under UI/images)
-        public const string PanelIconPath = UiCouiRoot + "/images/MapGrid.svg";
-
-        public const string VersionShort = "1.0.1";
+        // Road Services panel button (ico-zones-color02.svg under UI/images)
+        public const string PanelIconPath = UiCouiRoot + "/images/ico-zones-color02.svg";
 
         // Rebindable action IDs exposed in Options UI
         public const string kToggleToolActionName = "ToggleZoneTool";   // default Shift+Z
 
+        /// <summary>
+        /// Global settings instance
+        /// </summary>
         public static Setting? Settings
         {
             get; private set;
@@ -47,14 +59,24 @@ namespace EasyZoning
             get; private set;
         }
 
-        public static readonly ILog s_Log = LogManager.GetLogger(ModID).SetShowsErrorsInUI(false);
+        public static readonly ILog s_Log =
+            LogManager.GetLogger(ModID).SetShowsErrorsInUI(false);
 
+        // ---- PRIVATE STATE ----
         private static readonly HashSet<string> s_InstalledLocales = new();
         private static bool s_ReapplyingLocale;
+        private static bool s_BannerLogged;
 
+        
         public void OnLoad(UpdateSystem updateSystem)
         {
-            s_Log.Info($"[EZ] OnLoad v{VersionShort}");
+
+            // One-time banner.
+            if (!s_BannerLogged)
+            {
+                s_BannerLogged = true;
+                s_Log.Info($"{ModName} {ModTag} v{ModVersion} OnLoad");
+            }
 
             var settings = new Setting(this);
             Settings = settings;
@@ -90,7 +112,7 @@ namespace EasyZoning
             // definition only; prefab created after game load
             PanelBuilder.Initialize(force: false);
 
-            // Register our panel button with MapGrid.svg
+            // Register our panel button with ico-zones-color02.svg
             PanelBuilder.RegisterTool(
                 new ToolDefinition(
                     typeof(ZoningControllerToolSystem),

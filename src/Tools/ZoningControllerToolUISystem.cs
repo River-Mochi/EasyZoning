@@ -2,7 +2,7 @@
 // Purpose:
 //  • Expose UI bindings the React UI reads/writes (ToolZoningMode, RoadZoningMode, IsRoadPrefab).
 //  • Handle triggers (Change/Flip/Toggle) with null guards.
-//  • Show the “Zoning Side” section when our tool is active OR a RoadPrefab is active.
+//  • Show the “Zone Change” section when our tool is active OR a RoadPrefab is active.
 
 
 namespace EasyZoning.Tools

@@ -1,5 +1,5 @@
 ﻿// File: src/UI/src/mods/ZoningToolSections.tsx
-// Purpose: Renders the “Zoning Side” 3-button group in the Tool Options panel.
+// Purpose: Renders the “Zone Change” 3-button group in the Tool Options panel.
 // UI-only: Handles LMB on the three buttons. No world/road mouse input here.
 //
 // • Click Left/Right button sets that exact side.
@@ -68,7 +68,7 @@ export const ZoningToolController: ModuleRegistryExtend = (Component: any) => {
         const { translate } = useLocalization();
         const title = translate(
             "ToolOptions.SECTION[EasyZoning.Zone_Controller.SectionTitle]",
-            "Zoning Side"
+            "Zone Change"
         );
         const tipBoth = translate(
             "ToolOptions.TOOLTIP_DESCRIPTION[EasyZoning.Zone_Controller.ZoningModeBothDescription]",

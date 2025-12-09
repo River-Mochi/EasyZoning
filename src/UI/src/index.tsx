@@ -11,7 +11,7 @@ import { ToolOptionsVisibility } from "./mods/ToolOptionsVisible/toolOptionsVisi
 
 // Ensure assets are emitted to coui://ui-mods/images/
 import "../images/ico-zones-color02.svg";  // Top-left FAB icon
-import "../images/MapGrid.svg";            // Road Services panel tile
+import "../images/ico-zones-color02.svg";  // Road Services panel tile
 
 // Mode icons used in the Tool Options section
 import "../images/icons/mode-icon-both.svg";

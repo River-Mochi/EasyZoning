@@ -1,6 +1,6 @@
 // File: src/Tools/SyncCreatedRoadsSystem.cs
 // Purpose: adds ZoningDepth component to NEW created roads using current UI depths.
-// Without this, freshly drawn roads won’t inherit the chosen zoning side depths.
+// Without this, freshly drawn roads won’t inherit the chosen zoning change depths.
 
 
 namespace EasyZoning.Tools

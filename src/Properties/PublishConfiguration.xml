@@ -20,13 +20,11 @@
 		## Features
 		- Hover to preview instantly
 		- **Right-Click** flips preview (Left↔Right or Both↔None)
-		- Small vanilla-style “Zoning Side” panel beside Roads
+		- Small vanilla-style “Zone Change” panel beside Roads
 		- Remembers your last selection
 		- Options to protect existing buildings and already-zoned grids
 		- Launch via:
-		- Top-left icon (four-squares)
-		- Roads Services tile
-		- Optional **Shift+Z** hotkey
+		- Top-left icon or **Shift+Z** hotkey
 
 		## How to use
 		1. Open **Roads** → click **Easy Zoning**.
@@ -34,8 +32,7 @@
 		3. **Right-Click** to flip; **Left-Click** to apply.
 
 		## Compatibility
-		- No Harmony
-		- Low-conflict, extends vanilla UI
+		- No Harmony, Low-conflict, extends vanilla UI
 		- Uses native input and sounds
 
 		## Links
@@ -51,7 +48,7 @@
 	<!-- Tags -->
 	<Tag Value="Code Mod" />
 
-	<!-- Official discussion thread (set when you have it) -->
+	<!-- Official discussion thread -->
 	<ForumLink Value="" />
 
 	<!-- Versioning -->
@@ -63,7 +60,7 @@
 	<RequiredDLC Value="" />
 
 	<!-- Changelog -->
-	<ChangeLog>Initial Easy Zoning release.</ChangeLog>
+	<ChangeLog></ChangeLog>
 
 	<!-- External links -->
 	<ExternalLink Type="discord" Url="https://discord.gg/HTav7ARPs2" />

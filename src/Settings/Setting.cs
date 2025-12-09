@@ -1,6 +1,6 @@
 // File: src/Settings/Setting.cs
 // Purpose: Options UI + keybinding definition (CO API). One rebindable entry.
-// RMB stays vanilla cancelAction, we do NOT expose it in Options.
+// RMB stays vanilla cancelAction, not exposed in Options.
 
 namespace EasyZoning.Settings
 {
@@ -60,9 +60,9 @@ namespace EasyZoning.Settings
         [SettingsUISection(kAboutTab, kAboutInfoGroup)]
         public string VersionText =>
 #if DEBUG
-            EasyZoningMod.VersionShort + " (DEBUG)";
+            EasyZoningMod.ModVersion + " (DEBUG)";
 #else
-            EasyZoningMod.VersionShort;
+            EasyZoningMod.ModVersion;
 #endif
 
         private const string UrlParadox = "https://mods.paradoxplaza.com/authors/kimosabe1/cities_skylines_2?games=cities_skylines_2&orderBy=desc&sortBy=best&time=alltime";
