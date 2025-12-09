@@ -1,4 +1,4 @@
-// File: src/Settings/LocaleEN.cs
+﻿// File: src/Settings/LocaleEN.cs
 // Purpose: English (en-US) strings for Options UI + Panel text.
 
 namespace EasyZoning.Settings
@@ -33,10 +33,12 @@ namespace EasyZoning.Settings
 
                 // Toggles
                 { m_Settings.GetOptionLabelLocaleID(nameof(Setting.RemoveZonedCells)), "Prevent zoned cells from being removed" },
-                { m_Settings.GetOptionDescLocaleID(nameof(Setting.RemoveZonedCells)),  "Do not change already zoned cells during preview/apply.\n<Enabled recommended.>" },
+                { m_Settings.GetOptionDescLocaleID(nameof(Setting.RemoveZonedCells)),  "Do not change already zoned cells during preview/apply.\n\n" +
+                "<[ ✓ ] Enabled recommended.>" },
 
                 { m_Settings.GetOptionLabelLocaleID(nameof(Setting.RemoveOccupiedCells)), "Prevent occupied cells from being removed" },
-                { m_Settings.GetOptionDescLocaleID(nameof(Setting.RemoveOccupiedCells)),  "Do not change occupied cells during preview/apply (e.g., buildings).\n<Enabled recommended.>" },
+                { m_Settings.GetOptionDescLocaleID(nameof(Setting.RemoveOccupiedCells)),  "Do not change occupied cells during preview/apply (e.g., buildings).\n\n" +
+                "<[ ✓ ] Enabled recommended.>" },
 
                 // Keybind (only one visible)
                 { m_Settings.GetOptionLabelLocaleID(nameof(Setting.ToggleZoneTool)), "Toggle Panel" },
