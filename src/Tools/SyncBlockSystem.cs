@@ -1,7 +1,6 @@
 // File: src/Tools/SyncBlockSystem.cs
 // Purpose: applies the preview/committed zoning depth to zone blocks
 // respecting settings (RemoveZonedCells / RemoveOccupiedCells). Tool won’t function without it.
-//
 
 namespace EasyZoning.Tools
 {
@@ -102,15 +101,27 @@ namespace EasyZoning.Tools
 
                 Entity roadEntity = owner.m_Owner;
 
+                // NOTE:
+                // tool/UI uses int2 where x=LEFT and y=RIGHT (engine convention).
+                // The zone Block side detection here was effectively inverted for this mod,
+                // so Left-only and Right-only got swapped. Fix = swap the chosen depth.
                 bool left = (math.dot(1, block.m_Direction) < 0);
 
                 int depth;
                 if (ZoningPreviewLookup.TryGetComponent(roadEntity, out ZoningPreviewComponent zoningPreview))
-                    depth = left ? zoningPreview.Depths.x : zoningPreview.Depths.y;
+                {
+                    // FIX: swap x/y mapping at application point
+                    depth = left ? zoningPreview.Depths.y : zoningPreview.Depths.x;
+                }
                 else if (ZoningDepthLookup.TryGetComponent(roadEntity, out ZoningDepthComponent data))
-                    depth = left ? data.Depths.x : data.Depths.y;
+                {
+                    // FIX: swap x/y mapping at application point
+                    depth = left ? data.Depths.y : data.Depths.x;
+                }
                 else
+                {
                     return;
+                }
 
                 // Respect settings
                 if (Mod.Settings != null)

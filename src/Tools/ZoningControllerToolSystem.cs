@@ -62,7 +62,10 @@ namespace EasyZoning.Tools
         {
             var log = Mod.s_Log;
             if (log == null)
+            {
                 return;
+            }
+
             try
             {
                 log.Info("[EZ][Tool] " + msg);
@@ -99,7 +102,9 @@ namespace EasyZoning.Tools
         protected override void OnDestroy()
         {
             if (m_SelectedEntities.IsCreated)
+            {
                 m_SelectedEntities.Dispose();
+            }
 
             base.OnDestroy();
         }
@@ -115,7 +120,16 @@ namespace EasyZoning.Tools
             // Tool requirements
             requireZones = true;
             requireNet = Layer.Road;
+
+            // Must be true so UndergroundViewSystem + UndergroundPass can render contour lines.
             allowUnderground = true;
+
+            // Initial contour state follows the UI binding (default is false).
+            bool contourOn = m_UISystem != null && m_UISystem.ContourEnabled;
+            selectedSnap = contourOn
+                ? (Snap.All | Snap.ContourLines)
+                : (Snap.All & ~Snap.ContourLines);
+
 
 #if DEBUG
             Dbg("OnStartRunning: tool ACTIVE");
@@ -135,6 +149,39 @@ namespace EasyZoning.Tools
             base.OnStopRunning();
 #if DEBUG
             Dbg("OnStopRunning: tool INACTIVE");
+#endif
+        }
+
+        /// <summary>
+        /// Allow contour lines to be controlled by selectedSnap (the UI toggle).
+        /// The base implementation forces ContourLines OFF for most tools;
+        /// clearing it from offMask makes the bit available.
+        /// </summary>
+        public override void GetAvailableSnapMask(out Snap onMask, out Snap offMask)
+        {
+            base.GetAvailableSnapMask(out onMask, out offMask);
+
+            var origOn = onMask;
+            var origOff = offMask;
+
+            bool contourOn = m_UISystem != null && m_UISystem.ContourEnabled;
+
+            if (contourOn)
+            {
+                // Force contour lines ON while this tool is active.
+                onMask |= Snap.ContourLines;
+                offMask &= ~Snap.ContourLines;
+            }
+            else
+            {
+                // Force contour lines OFF while this tool is active.
+                onMask &= ~Snap.ContourLines;
+                offMask |= Snap.ContourLines;
+            }
+
+#if DEBUG
+            Mod.s_Log?.Info(
+                $"[EZ][Tool] GetAvailableSnapMask: contourOn={contourOn} origOn={origOn} origOff={origOff} → on={onMask} off={offMask}");
 #endif
         }
 
@@ -160,7 +207,9 @@ namespace EasyZoning.Tools
             var haveSoundbank = m_SoundbankQuery.CalculateEntityCount() > 0;
             ToolUXSoundSettingsData soundbank = default;
             if (haveSoundbank)
+            {
                 soundbank = m_SoundbankQuery.GetSingleton<ToolUXSoundSettingsData>();
+            }
 
             // RMB: cycle mode for the current tool side (Left → Right → Both → Left).
             bool rmbPressed = false;
@@ -168,7 +217,9 @@ namespace EasyZoning.Tools
             {
                 var mouse = Mouse.current;
                 if (mouse != null && mouse.rightButton.wasPressedThisFrame)
+                {
                     rmbPressed = true;
+                }
             }
             catch
             {
@@ -181,7 +232,9 @@ namespace EasyZoning.Tools
                 if (m_PreviewEntity != hitEntity)
                 {
                     if (m_PreviewEntity != Entity.Null)
+                    {
                         m_Highlight.HighlightEntity(m_PreviewEntity, false);
+                    }
 
                     m_SelectedEntities.Clear();
                     m_PreviewEntity = Entity.Null;
@@ -199,7 +252,9 @@ namespace EasyZoning.Tools
                 m_UISystem.CycleToolSideMode();
 
                 if (haveSoundbank)
+                {
                     AudioManager.instance.PlayUISound(soundbank.m_SnapSound);
+                }
 
                 m_Mode = Mode.Preview;
             }
@@ -224,7 +279,9 @@ namespace EasyZoning.Tools
                     if (m_PreviewEntity != hitEntity)
                     {
                         if (m_PreviewEntity != Entity.Null)
+                        {
                             m_Highlight.HighlightEntity(m_PreviewEntity, false);
+                        }
 
                         m_SelectedEntities.Clear();
                         m_PreviewEntity = Entity.Null;
@@ -236,6 +293,7 @@ namespace EasyZoning.Tools
                             m_PreviewEntity = hitEntity;
                         }
                     }
+
                     break;
 
                 case Mode.Select when hasRoad:
@@ -244,8 +302,11 @@ namespace EasyZoning.Tools
                         m_SelectedEntities.Add(hitEntity);
                         m_Highlight.HighlightEntity(hitEntity, true);
                         if (haveSoundbank)
+                        {
                             AudioManager.instance.PlayUISound(soundbank.m_SelectEntitySound);
+                        }
                     }
+
                     break;
 
                 // LMB applies selected icon cells or clears that side.
@@ -271,11 +332,17 @@ namespace EasyZoning.Tools
                         inputDeps = JobHandle.CombineDependencies(inputDeps, setJob);
 
                         for (var i = 0; i < m_SelectedEntities.Length; i++)
+                        {
                             m_Highlight.HighlightEntity(m_SelectedEntities[i], false);
+                        }
+
                         m_SelectedEntities.Clear();
 
                         if (haveSoundbank)
+                        {
                             AudioManager.instance.PlayUISound(soundbank.m_NetBuildSound);
+                        }
+
                         break;
                     }
             }
@@ -314,7 +381,9 @@ namespace EasyZoning.Tools
         private bool TryGetRoadUnderCursor(out Entity entity, out RaycastHit hit)
         {
             if (!GetRaycastResult(out entity, out hit))
+            {
                 return false;
+            }
 
             if (!m_SubBlockLookup.TryGetBuffer(entity, out _))
             {
@@ -356,7 +425,9 @@ namespace EasyZoning.Tools
         public void SetToolEnabled(bool isEnabled)
         {
             if (m_ToolSystem == null)
+            {
                 return;
+            }
 
             if (isEnabled)
             {
@@ -410,7 +481,9 @@ namespace EasyZoning.Tools
                 int2 current = default;
                 bool hasDepth = DepthLookup.TryGetComponent(e, out var existing);
                 if (hasDepth)
+                {
                     current = existing.Depths;
+                }
 
                 const int fullDepth = 6;
 
@@ -434,11 +507,11 @@ namespace EasyZoning.Tools
                 }
                 else if (wantLeft && !wantRight)
                 {
-                    preview.x = (current.x == 0) ? fullDepth : 0;
+                    preview.x = current.x == 0 ? fullDepth : 0;
                 }
                 else // !wantLeft && wantRight
                 {
-                    preview.y = (current.y == 0) ? fullDepth : 0;
+                    preview.y = current.y == 0 ? fullDepth : 0;
                 }
 
                 if (ZoningPreviewLookup.TryGetComponent(e, out ZoningPreviewComponent data))
@@ -467,7 +540,9 @@ namespace EasyZoning.Tools
             {
                 Entity e = Entities[index];
                 if (SelectedEntities.Contains(e))
+                {
                     return;
+                }
 
                 ECB.RemoveComponent<ZoningPreviewComponent>(index, e);
                 ECB.AddComponent<Updated>(index, e);
@@ -500,7 +575,9 @@ namespace EasyZoning.Tools
                     int2 current = default;
                     bool hasDepth = DepthLookup.TryGetComponent(e, out var existing);
                     if (hasDepth)
+                    {
                         current = existing.Depths;
+                    }
 
                     int2 newDepths = current;
 
@@ -520,12 +597,12 @@ namespace EasyZoning.Tools
                     else if (wantLeft && !wantRight)
                     {
                         // Left-only: toggle left, leave right as-is.
-                        newDepths.x = (current.x == 0) ? fullDepth : 0;
+                        newDepths.x = current.x == 0 ? fullDepth : 0;
                     }
                     else // !wantLeft && wantRight
                     {
                         // Right-only: toggle right, leave left as-is.
-                        newDepths.y = (current.y == 0) ? fullDepth : 0;
+                        newDepths.y = current.y == 0 ? fullDepth : 0;
                     }
 
                     if (hasDepth)

@@ -1,8 +1,10 @@
 // File: src/Tools/ZoningControllerToolUISystem.cs
 // Purpose:
-//  • Expose UI bindings the React UI reads/writes (ToolZoningMode, RoadZoningMode, IsRoadPrefab, IsPhotoMode).
+//  • Expose UI bindings the React UI reads/writes
+//    (ToolZoningMode, RoadZoningMode, IsRoadPrefab, IsPhotoMode, ContourEnabled).
 //  • Handle triggers (Change/Flip/Toggle) with null guards.
 //  • Show the “Zone Change” section when this tool is active OR a RoadPrefab is active.
+//  • Provide a Contour toggle when the EasyZoning tool is active.
 
 namespace EasyZoning.Tools
 {
@@ -17,7 +19,8 @@ namespace EasyZoning.Tools
     {
         private ValueBinding<int> m_ToolZoningMode = null!;
         private ValueBinding<int> m_RoadZoningMode = null!;
-        private ValueBinding<bool> m_IsRoadPrefab = null!; // section visibility flag
+        private ValueBinding<bool> m_IsRoadPrefab = null!;   // section visibility flag
+        private ValueBinding<bool> m_ContourEnabled = null!; // contour toggle in update panel
 
         private ToolSystem m_MainToolSystem = null!;
         private ZoningControllerToolSystem m_ZoningTool = null!;
@@ -25,57 +28,41 @@ namespace EasyZoning.Tools
 
         public ZoningMode ToolZoningMode => (ZoningMode)m_ToolZoningMode.value;
         public ZoningMode RoadZoningMode => (ZoningMode)m_RoadZoningMode.value;
+        public bool ContourEnabled => m_ContourEnabled.value;
+
+        // Shared helper: convert zoning mode bits to left/right depths.
+        private static int2 DepthsFromMode(ZoningMode mode)
+        {
+            // Engine convention: x = LEFT, y = RIGHT
+            return new int2(
+                (mode & ZoningMode.Left) != 0 ? 6 : 0,
+                (mode & ZoningMode.Right) != 0 ? 6 : 0);
+        }
 
         public int2 ToolDepths
         {
-            get
-            {
-                var mode = (ZoningMode)m_ToolZoningMode.value;
-
-                // Engine: x = LEFT, y = RIGHT
-                return new int2(
-                    (mode & ZoningMode.Left) == ZoningMode.Left ? 6 : 0,  // x → left side
-                    (mode & ZoningMode.Right) == ZoningMode.Right ? 6 : 0 // y → right side
-                );
-            }
+            get => DepthsFromMode(ToolZoningMode);
             set
             {
                 var mode = ZoningMode.None;
-
-                // value.x → left side
                 if (value.x > 0)
                     mode |= ZoningMode.Left;
-
-                // value.y → right side
                 if (value.y > 0)
                     mode |= ZoningMode.Right;
-
                 SetToolZoningMode(mode);
             }
         }
 
         public int2 RoadDepths
         {
-            get
-            {
-                var mode = (ZoningMode)m_RoadZoningMode.value;
-
-                // Engine: x = LEFT, y = RIGHT
-                return new int2(
-                    (mode & ZoningMode.Left) == ZoningMode.Left ? 6 : 0,
-                    (mode & ZoningMode.Right) == ZoningMode.Right ? 6 : 0
-                );
-            }
+            get => DepthsFromMode(RoadZoningMode);
             set
             {
                 var mode = ZoningMode.None;
-
                 if (value.x > 0)
                     mode |= ZoningMode.Left;
-
                 if (value.y > 0)
                     mode |= ZoningMode.Right;
-
                 ChangeRoadZoningMode((int)mode);
             }
         }
@@ -101,7 +88,7 @@ namespace EasyZoning.Tools
 
         private void LogToolDepths(string tag)
         {
-            var mode = (ZoningMode)m_ToolZoningMode.value;
+            var mode = ToolZoningMode;
             var d = ToolDepths;
             Dbg($"{tag}: ToolZoningMode={ModeToStr(mode)} ToolDepths=({d.x},{d.y})");
         }
@@ -113,22 +100,29 @@ namespace EasyZoning.Tools
         {
             base.OnCreate();
 
-            AddBinding(m_ToolZoningMode = new ValueBinding<int>(Mod.ModID, "ToolZoningMode", (int)ZoningMode.Both));
-            AddBinding(m_RoadZoningMode = new ValueBinding<int>(Mod.ModID, "RoadZoningMode", (int)ZoningMode.Both));
-            AddBinding(m_IsRoadPrefab = new ValueBinding<bool>(Mod.ModID, "IsRoadPrefab", false));
+            AddBinding(m_ToolZoningMode =
+                new ValueBinding<int>(Mod.ModID, "ToolZoningMode", (int)ZoningMode.Both));
+            AddBinding(m_RoadZoningMode =
+                new ValueBinding<int>(Mod.ModID, "RoadZoningMode", (int)ZoningMode.Both));
+            AddBinding(m_IsRoadPrefab =
+                new ValueBinding<bool>(Mod.ModID, "IsRoadPrefab", false));
+            AddBinding(m_ContourEnabled =
+                new ValueBinding<bool>(Mod.ModID, "ContourEnabled", false));
 
-            // Photo mode system → drives IsPhotoMode binding used by UI to hide panel/buttons in Photo Mode.
+            // Photo mode system → drives IsPhotoMode binding used by UI to hide panel/buttons.
             m_PhotoModeSystem = World.GetOrCreateSystemManaged<PhotoModeRenderSystem>();
             AddUpdateBinding(new GetterValueBinding<bool>(
                 Mod.ModID,
                 "IsPhotoMode",
                 () => m_PhotoModeSystem != null && m_PhotoModeSystem.Enabled));
 
+            // Triggers from UI
             AddBinding(new TriggerBinding<int>(Mod.ModID, "ChangeRoadZoningMode", ChangeRoadZoningMode));
             AddBinding(new TriggerBinding<int>(Mod.ModID, "ChangeToolZoningMode", ChangeToolZoningMode));
             AddBinding(new TriggerBinding(Mod.ModID, "FlipToolBothMode", FlipToolBothMode));
             AddBinding(new TriggerBinding(Mod.ModID, "FlipRoadBothMode", FlipRoadBothMode));
             AddBinding(new TriggerBinding(Mod.ModID, "ToggleZoneControllerTool", ToggleTool));
+            AddBinding(new TriggerBinding(Mod.ModID, "ToggleContourLines", ToggleContourLines));
 
             try
             {
@@ -167,6 +161,7 @@ namespace EasyZoning.Tools
 #if DEBUG
                 Dbg(
                     $"Init visibility → show={show}, tool={(activeTool != null ? activeTool.GetType().Name : "(null)")}, prefab={(activePrefab != null ? activePrefab.name : "(null)")}");
+
 #endif
             }
             catch { }
@@ -210,6 +205,7 @@ namespace EasyZoning.Tools
 #if DEBUG
                 Dbg(
                     $"OnToolChanged: show={show} activeTool={(tool != null ? tool.GetType().Name : "(null)")} prefab={(prefab != null ? prefab.name : "(null)")}");
+
 #endif
             }
             catch { }
@@ -230,6 +226,7 @@ namespace EasyZoning.Tools
 #if DEBUG
                 Dbg(
                     $"OnPrefabChanged: show={show} prefab={(prefab != null ? prefab.name : "(null)")} tool={(tool != null ? tool.GetType().Name : "(null)")}");
+
 #endif
             }
             catch { }
@@ -380,6 +377,52 @@ namespace EasyZoning.Tools
                     FlipToolBothOrNone();
             }
             catch { }
+        }
+
+        /// <summary>
+        /// Toggle terrain contour lines while the zone update tool is active.
+        /// If selectedSnap cannot be accessed, this becomes a no-op.
+        /// </summary>
+        private void ToggleContourLines()
+        {
+            try
+            {
+                // Flip the UI binding so the React button can show state.
+                bool next = !ContourEnabled;
+                m_ContourEnabled.Update(next);
+
+                var toolSystem = m_MainToolSystem;
+                if (toolSystem == null)
+                    return;
+
+                var active = toolSystem.activeTool;
+                if (active == null)
+                    return;
+
+                try
+                {
+                    // ToolBaseSystem exposes selectedSnap; manipulate the ContourLines bit.
+                    Snap snap = active.selectedSnap;
+
+                    if (next)
+                        snap |= Snap.ContourLines;
+                    else
+                        snap &= ~Snap.ContourLines;
+
+                    active.selectedSnap = snap;
+
+#if DEBUG
+                    Dbg($"ToggleContourLines → {(next ? "ON" : "OFF")}  selectedSnap={snap}");
+#endif
+                }
+                catch
+                {
+                    // If ToolBaseSystem.selectedSnap changes in a future patch, ignore and avoid crashes.
+                }
+            }
+            catch
+            {
+            }
         }
 
         private static bool ShouldShowFor(ToolBaseSystem? tool, PrefabBase? prefab)

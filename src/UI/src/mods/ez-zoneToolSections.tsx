@@ -1,8 +1,8 @@
 ﻿// File: src/UI/src/mods/ez-zoneToolSections.tsx
 // Purpose:
-//   Renders the “Zone Change” 3-button group in the Tool Options panel.
-//   UI-only: handles left-mouse clicks on the three icons; world input is
-//   handled in ZoningControllerToolSystem (C#).
+//   Renders the “Contour” + “Zone Change” rows in the Tool Options panel.
+//   UI-only: handles clicks on the icons; world input is handled in C#
+//   (ZoningControllerToolSystem + ZoningControllerToolUISystem).
 
 import { ModuleRegistryExtend } from "cs2/modding";
 import { bindValue, trigger, useValue } from "cs2/api";
@@ -19,6 +19,8 @@ import styles from "./ez-zoneToolSections.module.scss";
 import IconBoth from "../../images/icons/mode-icon-both.svg";
 import IconLeft from "../../images/icons/mode-icon-left.svg";
 import IconRight from "../../images/icons/mode-icon-right.svg";
+// Copy the vanilla contour icon into your images/icons folder with this name.
+import IconContour from "../../images/icons/ContourLines.svg";
 
 export enum ZoningMode {
     None = 0,
@@ -30,6 +32,7 @@ export enum ZoningMode {
 const RoadZoningMode$ = bindValue<number>(mod.id, "RoadZoningMode");
 const ToolZoningMode$ = bindValue<number>(mod.id, "ToolZoningMode");
 const IsRoadPrefab$ = bindValue<boolean>(mod.id, "IsRoadPrefab");
+const ContourEnabled$ = bindValue<boolean>(mod.id, "ContourEnabled");
 
 function setToolZoningMode(value: ZoningMode) {
     trigger(mod.id, "ChangeToolZoningMode", value);
@@ -47,6 +50,10 @@ function flipToolBothMode() {
     trigger(mod.id, "FlipToolBothMode");
 }
 
+function toggleContourLines() {
+    trigger(mod.id, "ToggleContourLines");
+}
+
 export const ZoningToolController: ModuleRegistryExtend = (Component: any) => {
     return (props: any) => {
         const result = Component(props);
@@ -57,26 +64,33 @@ export const ZoningToolController: ModuleRegistryExtend = (Component: any) => {
         const FOCUS_DISABLED = resolver.FOCUS_DISABLED;
 
         const toolButtonClass = resolver.toolButtonTheme?.ToolButton ?? undefined;
-
         const rowClass = styles.ezRow ?? undefined;
 
         const activeToolId = useValue(tool.activeTool$)?.id;
         const roadPrefabActive = useValue(IsRoadPrefab$) === true;
         const zoningToolOn = activeToolId === ZONING_TOOL_ID;
 
-        const shouldShowSection = roadPrefabActive || zoningToolOn;
-
         const toolMode = useValue(ToolZoningMode$) as ZoningMode;
         const roadMode = useValue(RoadZoningMode$) as ZoningMode;
+        const contourEnabled = !!useValue(ContourEnabled$);
+
+        // When road prefab is active *and* our tool is NOT, buttons act on RoadZoningMode.
+        const usingRoadState = roadPrefabActive && !zoningToolOn;
 
         const { translate } = useLocalization();
-        const title = translate(
+
+        const titleZone = translate(
             "ToolOptions.SECTION[EasyZoning.Zone_Controller.SectionTitle]",
             "Zone Change"
         );
+        const titleContour = translate(
+            "ToolOptions.SECTION[EasyZoning.Zone_Controller.ContourTitle]",
+            "Contour"
+        );
+
         const tipBoth = translate(
             "ToolOptions.TOOLTIP_DESCRIPTION[EasyZoning.Zone_Controller.ZoningModeBothDescription]",
-            "Toggle Both/None."
+            "Toggle zoning on both sides."
         );
         const tipLeft = translate(
             "ToolOptions.TOOLTIP_DESCRIPTION[EasyZoning.Zone_Controller.ZoningModeLeftDescription]",
@@ -86,17 +100,52 @@ export const ZoningToolController: ModuleRegistryExtend = (Component: any) => {
             "ToolOptions.TOOLTIP_DESCRIPTION[EasyZoning.Zone_Controller.ZoningModeRightDescription]",
             "Zone only the right side."
         );
+        const tipContour = translate(
+            "ToolOptions.TOOLTIP_DESCRIPTION[EasyZoning.Zone_Controller.ContourDescription]",
+            "Toggle terrain contour lines while Easy Zoning is active."
+        );
 
-        if (shouldShowSection) {
-            const usingRoadState = roadPrefabActive && !zoningToolOn;
+        // Contour row: only when our tool is actually active (update-existing-roads mode).
+        if (zoningToolOn) {
+            result.props.children?.push(
+                <Section title={titleContour}>
+                    <div className={rowClass}>
+                        <ToolButton
+                            selected={contourEnabled}
+                            tooltip={tipContour}
+                            onSelect={toggleContourLines}
+                            src={IconContour}
+                            focusKey={FOCUS_DISABLED}
+                            className={toolButtonClass}
+                        />
+                    </div>
+                </Section>
+            );
+        }
+
+        // Zone Change row: show whenever we’re either:
+        //  • in vanilla road tool (new roads), OR
+        //  • EasyZoning tool (update mode).
+        const shouldShowZoneSection = roadPrefabActive || zoningToolOn;
+
+        if (shouldShowZoneSection) {
             const selectedMode = usingRoadState ? roadMode : toolMode;
 
-            const onLeft = () => (usingRoadState ? setRoadZoningMode(ZoningMode.Left) : setToolZoningMode(ZoningMode.Left));
-            const onRight = () => (usingRoadState ? setRoadZoningMode(ZoningMode.Right) : setToolZoningMode(ZoningMode.Right));
-            const onBoth = () => (usingRoadState ? flipRoadBothMode() : flipToolBothMode());
+            const onLeft = () =>
+                usingRoadState
+                    ? setRoadZoningMode(ZoningMode.Left)
+                    : setToolZoningMode(ZoningMode.Left);
+
+            const onRight = () =>
+                usingRoadState
+                    ? setRoadZoningMode(ZoningMode.Right)
+                    : setToolZoningMode(ZoningMode.Right);
+
+            const onBoth = () =>
+                usingRoadState ? flipRoadBothMode() : flipToolBothMode();
 
             result.props.children?.push(
-                <Section title={title}>
+                <Section title={titleZone}>
                     <div className={rowClass}>
                         <ToolButton
                             selected={(selectedMode & ZoningMode.Both) === ZoningMode.Both}
