@@ -1,6 +1,7 @@
 // File: src/Tools/ToolHighlightSystem.cs
-// Purpose: track which road entities are "highlighted" by our zoning tool (hover / multi-select).
-//   Just track & poke Updated on changes. Clear on shutdown.
+// Purpose:
+//   Track which road entities are "highlighted" by the zoning tool (hover / multi-select).
+//   Adds Updated when highlight state changes so the game can react if it wants.
 
 namespace EasyZoning.Tools
 {
@@ -26,7 +27,8 @@ namespace EasyZoning.Tools
         }
 
         protected override void OnUpdate()
-        { /* no per-frame work */
+        {
+            // No per-frame work; state is driven by explicit calls.
         }
 
         public void HighlightEntity(Entity entity, bool enable)

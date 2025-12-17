@@ -1,6 +1,4 @@
 // File: src/UI/webpack.config.js
-
-
 const path = require("path");
 const MOD = require("./mod.json");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
@@ -12,7 +10,8 @@ const CSII_USERDATAPATH = process.env.CSII_USERDATAPATH;
 if (!CSII_USERDATAPATH) {
     throw "CSII_USERDATAPATH environment variable is not set, ensure the CSII Modding Toolchain is installed correctly";
 }
-const OUTPUT_DIR = `${CSII_USERDATAPATH}\\Mods\\${MOD.id}`;     // Mods/EasyZoning
+
+const OUTPUT_DIR = `${CSII_USERDATAPATH}\\Mods\\${MOD.id}`;
 
 const banner = `
  * Cities: Skylines II UI Module
@@ -24,7 +23,6 @@ const banner = `
 `;
 
 module.exports = {
-    bail: true,
     mode: "production",
     stats: "none",
     entry: {
@@ -63,40 +61,58 @@ module.exports = {
                             modules: {
                                 auto: true,
                                 exportLocalsConvention: "camelCase",
-                                localIdentName: "[local]_[hash:base64:3]"
-                            }
-                        }
+                                localIdentName: "[local]_[hash:base64:3]",
+                            },
+                        },
                     },
                     {
                         loader: "sass-loader",
-                        options: { implementation: require("sass-embedded") }
-                    }
-                ]
+                        options: {
+                            api: "modern",
+                            implementation: require("sass"),
+                            sassOptions: {
+                                // Keep this simple; no custom includePaths needed for this mod.
+                            },
+                        },
+                    },
+                ],
             },
             {
                 test: /\.(png|jpe?g|gif|svg)$/i,
                 type: "asset/resource",
-                generator: { filename: "images/[name][ext][query]" }
-            }
-        ]
+                generator: {
+                    filename: "images/[name][ext][query]",
+                },
+            },
+        ],
     },
     resolve: {
         extensions: [".tsx", ".ts", ".js"],
         modules: ["node_modules", path.join(__dirname, "src")],
         alias: {
-            "mod.json": path.resolve(__dirname, "mod.json")
-        }
+            "mod.json": path.resolve(__dirname, "mod.json"),
+        },
     },
     output: {
         path: path.resolve(__dirname, OUTPUT_DIR),
-        library: { type: "module" },
-        publicPath: `coui://ui-mods/`
+        library: {
+            type: "module",
+        },
+        publicPath: `coui://ui-mods/`,
     },
     optimization: {
         minimize: true,
-        minimizer: [new TerserPlugin({ extractComments: { banner: () => banner } })]
+        minimizer: [
+            new TerserPlugin({
+                extractComments: {
+                    banner: () => banner,
+                },
+            }),
+        ],
     },
-    experiments: { outputModule: true },
+    experiments: {
+        outputModule: true,
+    },
     plugins: [
         new MiniCssExtractPlugin(),
         new CSSPresencePlugin(),
@@ -108,7 +124,7 @@ module.exports = {
                     console.log(`\n🔨 ${!runCount++ ? "Built" : "Updated"} ${MOD.id}`);
                     console.log("   " + gray(OUTPUT_DIR) + "\n");
                 });
-            }
-        }
-    ]
+            },
+        },
+    ],
 };

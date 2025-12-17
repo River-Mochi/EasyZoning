@@ -1,0 +1,10 @@
+﻿// File: src/UI/src/mods/ez-zoneToolSections.module.scss
+// Purpose: Local layout overrides for the Easy Zoning "Zone Change" icon row.
+
+.ezRow {
+    display: flex;
+    flex-direction: row;
+    gap: 6px; // spacing between the three icons
+    justify-content: flex-start;
+    align-items: center;
+}

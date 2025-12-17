@@ -1,27 +1,37 @@
 ﻿// File: src/UI/src/mods/ToolOptionsVisible/toolOptionsVisible.tsx
-// Purpose: Keep the small Tool Options panel visible while our tool OR a road prefab is active.
+// Purpose:
+//   Keep the Tool Options panel visible while the zoning controller tool
+//   or a road prefab tool is active.
+//   Photo Mode: do not force panel visibility.
 
-import { ModuleRegistryExtend } from "cs2/modding";
 import { bindValue } from "cs2/api";
 import { tool } from "cs2/bindings";
 import mod from "mod.json";
 import { ZONING_TOOL_ID } from "../../shared/tool-ids";
 
-// Bound from C#: ZoningControllerToolUISystem
+// C# bindings:
+//   • IsRoadPrefab (true when a road prefab tool is active)
+//   • IsPhotoMode  (true when Photo Mode is active)
 const isRoadPrefab$ = bindValue<boolean>(mod.id, "IsRoadPrefab");
+const isPhotoMode$ = bindValue<boolean>(mod.id, "IsPhotoMode");
 
-export const ToolOptionsVisibility: ModuleRegistryExtend = (useToolOptionsVisible: any) => {
+// Extension signature: takes original hook, returns replacement hook.
+type UseToolOptionsVisible = (...args: any[]) => boolean;
+type ExtendHook<T extends (...args: any[]) => any> = (original: T) => T;
+
+export const ToolOptionsVisibility: ExtendHook<UseToolOptionsVisible> = (useToolOptionsVisible) => {
     return (...args: any[]) => {
-        const vanillaVisible = useToolOptionsVisible?.(...args);
+        const vanillaVisible = !!useToolOptionsVisible?.(...args);
+
         const activeId = tool.activeTool$.value?.id;
         const ours = activeId === ZONING_TOOL_ID;
+
         const roadPrefab = !!isRoadPrefab$.value;
+        const photoMode = !!isPhotoMode$.value;
 
-        try {
-            console.log(`[EZ][UI] useToolOptionsVisible: active=${activeId} ours=${ours} roadPrefab=${roadPrefab} vanilla=${!!vanillaVisible}`);
-        } catch { }
+        // Photo Mode: never force visibility.
+        if (photoMode) return vanillaVisible;
 
-        // Keep the panel visible if vanilla says so, or our tool is active, or a road prefab tool is active.
         return vanillaVisible || ours || roadPrefab;
     };
 };

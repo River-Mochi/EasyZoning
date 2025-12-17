@@ -1,7 +1,8 @@
 // File: src/Components/ZoningComponents.cs
-// Purpose: Both preview and committed zoning data components in one place
+// Purpose: Holds temporary preview depths (left/right) while hovering / previewing.
+// Preview = temporary overlay, Depth = real stored setting.
 
-namespace EasyZoning.Tools
+namespace EasyZoning.Components
 {
     using System;
     using Colossal.Serialization.Entities;

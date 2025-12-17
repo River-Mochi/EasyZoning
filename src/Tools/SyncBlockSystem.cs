@@ -6,6 +6,7 @@
 namespace EasyZoning.Tools
 {
     using System;
+    using EasyZoning.Components;
     using Game;
     using Game.Common;
     using Game.Zones;
@@ -130,7 +131,7 @@ namespace EasyZoning.Tools
                 ECB.SetComponent(index, blockEntity, validArea);
             }
 
-            private bool IsAnyCellOccupied(DynamicBuffer<Cell> cells, Block block, ValidArea validArea)
+            private readonly bool IsAnyCellOccupied(DynamicBuffer<Cell> cells, Block block, ValidArea validArea)
             {
                 if (validArea.m_Area.y * validArea.m_Area.w == 0)
                     return false;
@@ -148,7 +149,7 @@ namespace EasyZoning.Tools
                 return false;
             }
 
-            private bool IsAnyCellZoned(DynamicBuffer<Cell> cells, Block block, ValidArea validArea)
+            private readonly bool IsAnyCellZoned(DynamicBuffer<Cell> cells, Block block, ValidArea validArea)
             {
                 if (validArea.m_Area.y * validArea.m_Area.w == 0)
                     return false;

@@ -1,12 +1,14 @@
 ﻿// File: src/Tools/ZoningControllerToolSystem.cs
 // Purpose:
-//   Runtime tool. LMB toggles/apply zoning modes over valid roads.
+//   Runtime tool. LMB toggles/applies zoning modes over valid roads.
+//   RMB cycles the current mode: Left → Right → Both → Left (mode only; LMB still applies/toggles).
 //   ESC is left to vanilla UI.
-//   Preview always reflects the current mode for the hovered segment.
+//   Preview reflects the current mode for the hovered segment.
 
 namespace EasyZoning.Tools
 {
     using System;
+    using EasyZoning.Components;
     using Game.Audio;
     using Game.Common;
     using Game.Net;
@@ -17,6 +19,7 @@ namespace EasyZoning.Tools
     using Unity.Entities;
     using Unity.Jobs;
     using Unity.Mathematics;
+    using UnityEngine.InputSystem;
 
     public partial class ZoningControllerToolSystem : ToolBaseSystem
     {
@@ -37,7 +40,7 @@ namespace EasyZoning.Tools
 
         private NativeList<Entity> m_SelectedEntities;
 
-        // Remember what tool was active before we switched to ours,
+        // Remember what tool was active before switching to this tool,
         // so the toggle can restore it cleanly.
         private ToolBaseSystem? m_PreviousTool;
 
@@ -105,9 +108,9 @@ namespace EasyZoning.Tools
         {
             base.OnStartRunning();
 
-            // Enable our LMB tool action; keep Cancel disabled so ESC stays with vanilla.
+            // Enable LMB tool action; keep Cancel disabled so ESC stays with vanilla.
             applyAction.shouldBeEnabled = true;
-            cancelAction.shouldBeEnabled = false;   // Let Esc bubble to vanilla UI
+            cancelAction.shouldBeEnabled = false;
 
             // Tool requirements
             requireZones = true;
@@ -121,7 +124,7 @@ namespace EasyZoning.Tools
 
         protected override void OnStopRunning()
         {
-            // Disable our actions when tool stops
+            // Disable actions when tool stops
             applyAction.shouldBeEnabled = false;
             cancelAction.shouldBeEnabled = false;
 
@@ -159,8 +162,48 @@ namespace EasyZoning.Tools
             if (haveSoundbank)
                 soundbank = m_SoundbankQuery.GetSingleton<ToolUXSoundSettingsData>();
 
-            // LMB only: select / apply. RMB is NOT handled here; vanilla can use it.
-            if (applyAction.WasPressedThisFrame() || applyAction.IsPressed())
+            // RMB: cycle mode for the current tool side (Left → Right → Both → Left).
+            bool rmbPressed = false;
+            try
+            {
+                var mouse = Mouse.current;
+                if (mouse != null && mouse.rightButton.wasPressedThisFrame)
+                    rmbPressed = true;
+            }
+            catch
+            {
+                rmbPressed = false;
+            }
+
+            if (rmbPressed && hasRoad)
+            {
+                // Keep hovered entity highlighted while cycling
+                if (m_PreviewEntity != hitEntity)
+                {
+                    if (m_PreviewEntity != Entity.Null)
+                        m_Highlight.HighlightEntity(m_PreviewEntity, false);
+
+                    m_SelectedEntities.Clear();
+                    m_PreviewEntity = Entity.Null;
+
+                    m_Highlight.HighlightEntity(hitEntity, true);
+                    m_SelectedEntities.Add(hitEntity);
+                    m_PreviewEntity = hitEntity;
+                }
+                else if (!m_SelectedEntities.Contains(hitEntity))
+                {
+                    m_SelectedEntities.Add(hitEntity);
+                    m_Highlight.HighlightEntity(hitEntity, true);
+                }
+
+                m_UISystem.CycleToolSideMode();
+
+                if (haveSoundbank)
+                    AudioManager.instance.PlayUISound(soundbank.m_SnapSound);
+
+                m_Mode = Mode.Preview;
+            }
+            else if (applyAction.WasPressedThisFrame() || applyAction.IsPressed())
             {
                 m_Mode = Mode.Select;
             }
@@ -267,7 +310,7 @@ namespace EasyZoning.Tools
             return inputDeps;
         }
 
-        // Roads without SubBlocks (e.g., highways) are ignored.
+        // Roads without SubBlocks (for example, highways) are ignored.
         private bool TryGetRoadUnderCursor(out Entity entity, out RaycastHit hit)
         {
             if (!GetRaycastResult(out entity, out hit))
@@ -308,7 +351,7 @@ namespace EasyZoning.Tools
             m_ToolRaycastSystem.netLayerMask = Layer.Road;
         }
 
-        // When enabling: remember previous active tool and switch to ours.
+        // When enabling: remember previous active tool and switch to this tool.
         // When disabling: restore previous tool, or DefaultToolSystem if unknown.
         public void SetToolEnabled(bool isEnabled)
         {
@@ -321,7 +364,8 @@ namespace EasyZoning.Tools
                 {
                     m_PreviousTool = m_ToolSystem.activeTool;
 #if DEBUG
-                    Dbg($"SetToolEnabled(true): Activating our tool; previous={(m_PreviousTool != null ? m_PreviousTool.GetType().Name : "(null)")}");
+                    Dbg(
+                        $"SetToolEnabled(true): Activating tool; previous={(m_PreviousTool != null ? m_PreviousTool.GetType().Name : "(null)")}");
 #endif
                     m_ToolSystem.activeTool = this;
                 }
@@ -333,12 +377,13 @@ namespace EasyZoning.Tools
                     var target = m_PreviousTool;
                     if (target == null || target == this)
                     {
-                        // Fallback to vanilla default tool if we have nothing sane stored.
+                        // Fallback to vanilla default tool if nothing sane is stored.
                         target = World.GetOrCreateSystemManaged<DefaultToolSystem>();
                     }
 
 #if DEBUG
-                    Dbg($"SetToolEnabled(false): Restoring tool → {(target != null ? target.GetType().Name : "(null)")}");
+                    Dbg(
+                        $"SetToolEnabled(false): Restoring tool → {(target != null ? target.GetType().Name : "(null)")}");
 #endif
                     if (target != null)
                     {
@@ -379,12 +424,12 @@ namespace EasyZoning.Tools
 
                 if (!wantLeft && !wantRight)
                 {
-                    // NONE icon: toggle — if all off, fill both; otherwise clear
+                    // NONE icon: toggle — if all off, fill both; otherwise clear.
                     preview = allOff ? new int2(fullDepth, fullDepth) : default;
                 }
                 else if (wantLeft && wantRight)
                 {
-                    // BOTH icon: toggle — if any side on, clear; if both off, fill both
+                    // BOTH icon: toggle — if any side on, clear; if both off, fill both.
                     preview = anyOn ? default : new int2(fullDepth, fullDepth);
                 }
                 else if (wantLeft && !wantRight)
@@ -446,7 +491,7 @@ namespace EasyZoning.Tools
 
                 foreach (Entity e in Entities)
                 {
-                    // Remove any preview we left on the entity
+                    // Remove any preview left on the entity
                     if (ZoningPreviewLookup.HasComponent(e))
                     {
                         ECB.RemoveComponent<ZoningPreviewComponent>(e);
@@ -464,22 +509,22 @@ namespace EasyZoning.Tools
 
                     if (!wantLeft && !wantRight)
                     {
-                        // NONE icon: toggle — if all off, fill both; otherwise clear
+                        // NONE icon: toggle — if all off, fill both; otherwise clear.
                         newDepths = allOff ? new int2(fullDepth, fullDepth) : default;
                     }
                     else if (wantLeft && wantRight)
                     {
-                        // BOTH icon: toggle — if any side on, clear; if both off, fill both
+                        // BOTH icon: toggle — if any side on, clear; if both off, fill both.
                         newDepths = anyOn ? default : new int2(fullDepth, fullDepth);
                     }
                     else if (wantLeft && !wantRight)
                     {
-                        // Left-only: toggle left, leave right as-is
+                        // Left-only: toggle left, leave right as-is.
                         newDepths.x = (current.x == 0) ? fullDepth : 0;
                     }
                     else // !wantLeft && wantRight
                     {
-                        // Right-only: toggle right, leave left as-is
+                        // Right-only: toggle right, leave left as-is.
                         newDepths.y = (current.y == 0) ? fullDepth : 0;
                     }
 

@@ -1,13 +1,14 @@
 // File: src/Tools/ZoningControllerToolUISystem.cs
 // Purpose:
-//  • Expose UI bindings the React UI reads/writes (ToolZoningMode, RoadZoningMode, IsRoadPrefab).
+//  • Expose UI bindings the React UI reads/writes (ToolZoningMode, RoadZoningMode, IsRoadPrefab, IsPhotoMode).
 //  • Handle triggers (Change/Flip/Toggle) with null guards.
-//  • Show the “Zone Change” section when our tool is active OR a RoadPrefab is active.
+//  • Show the “Zone Change” section when this tool is active OR a RoadPrefab is active.
 
 namespace EasyZoning.Tools
 {
     using Colossal.UI.Binding;
     using Game.Prefabs;
+    using Game.Rendering;
     using Game.Tools;
     using Game.UI;
     using Unity.Mathematics;
@@ -16,10 +17,11 @@ namespace EasyZoning.Tools
     {
         private ValueBinding<int> m_ToolZoningMode = null!;
         private ValueBinding<int> m_RoadZoningMode = null!;
-        private ValueBinding<bool> m_IsRoadPrefab = null!; // “should show section”
+        private ValueBinding<bool> m_IsRoadPrefab = null!; // section visibility flag
 
         private ToolSystem m_MainToolSystem = null!;
         private ZoningControllerToolSystem m_ZoningTool = null!;
+        private PhotoModeRenderSystem m_PhotoModeSystem = null!;
 
         public ZoningMode ToolZoningMode => (ZoningMode)m_ToolZoningMode.value;
         public ZoningMode RoadZoningMode => (ZoningMode)m_RoadZoningMode.value;
@@ -113,7 +115,14 @@ namespace EasyZoning.Tools
 
             AddBinding(m_ToolZoningMode = new ValueBinding<int>(Mod.ModID, "ToolZoningMode", (int)ZoningMode.Both));
             AddBinding(m_RoadZoningMode = new ValueBinding<int>(Mod.ModID, "RoadZoningMode", (int)ZoningMode.Both));
-            AddBinding(m_IsRoadPrefab = new ValueBinding<bool>(Mod.ModID, "IsRoadPrefab", false)); // “should show section”
+            AddBinding(m_IsRoadPrefab = new ValueBinding<bool>(Mod.ModID, "IsRoadPrefab", false));
+
+            // Photo mode system → drives IsPhotoMode binding used by UI to hide panel/buttons in Photo Mode.
+            m_PhotoModeSystem = World.GetOrCreateSystemManaged<PhotoModeRenderSystem>();
+            AddUpdateBinding(new GetterValueBinding<bool>(
+                Mod.ModID,
+                "IsPhotoMode",
+                () => m_PhotoModeSystem != null && m_PhotoModeSystem.Enabled));
 
             AddBinding(new TriggerBinding<int>(Mod.ModID, "ChangeRoadZoningMode", ChangeRoadZoningMode));
             AddBinding(new TriggerBinding<int>(Mod.ModID, "ChangeToolZoningMode", ChangeToolZoningMode));
@@ -143,7 +152,7 @@ namespace EasyZoning.Tools
             try
             {
                 ToolBaseSystem activeTool = null!;
-                Game.Prefabs.PrefabBase activePrefab = null!;
+                PrefabBase activePrefab = null!;
                 if (m_MainToolSystem != null)
                 {
                     activeTool = m_MainToolSystem.activeTool;
@@ -156,7 +165,8 @@ namespace EasyZoning.Tools
                 bool show = ShouldShowFor(activeTool, activePrefab);
                 m_IsRoadPrefab.Update(show);
 #if DEBUG
-                Dbg($"Init visibility → show={show}, tool={(activeTool != null ? activeTool.GetType().Name : "(null)")}, prefab={(activePrefab != null ? activePrefab.name : "(null)")}");
+                Dbg(
+                    $"Init visibility → show={show}, tool={(activeTool != null ? activeTool.GetType().Name : "(null)")}, prefab={(activePrefab != null ? activePrefab.name : "(null)")}");
 #endif
             }
             catch { }
@@ -189,7 +199,7 @@ namespace EasyZoning.Tools
         {
             try
             {
-                Game.Prefabs.PrefabBase prefab = null!;
+                PrefabBase prefab = null!;
                 try
                 {
                     prefab = tool != null ? tool.GetPrefab() : null!;
@@ -198,13 +208,14 @@ namespace EasyZoning.Tools
                 bool show = ShouldShowFor(tool, prefab);
                 m_IsRoadPrefab.Update(show);
 #if DEBUG
-                Dbg($"OnToolChanged: show={show} activeTool={(tool != null ? tool.GetType().Name : "(null)")} prefab={(prefab != null ? prefab.name : "(null)")}");
+                Dbg(
+                    $"OnToolChanged: show={show} activeTool={(tool != null ? tool.GetType().Name : "(null)")} prefab={(prefab != null ? prefab.name : "(null)")}");
 #endif
             }
             catch { }
         }
 
-        private void OnPrefabChanged(Game.Prefabs.PrefabBase prefab)
+        private void OnPrefabChanged(PrefabBase prefab)
         {
             try
             {
@@ -217,7 +228,8 @@ namespace EasyZoning.Tools
                 bool show = ShouldShowFor(tool, prefab);
                 m_IsRoadPrefab.Update(show);
 #if DEBUG
-                Dbg($"OnPrefabChanged: show={show} prefab={(prefab != null ? prefab.name : "(null)")} tool={(tool != null ? tool.GetType().Name : "(null)")}");
+                Dbg(
+                    $"OnPrefabChanged: show={show} prefab={(prefab != null ? prefab.name : "(null)")} tool={(tool != null ? tool.GetType().Name : "(null)")}");
 #endif
             }
             catch { }
@@ -327,7 +339,7 @@ namespace EasyZoning.Tools
                 var next =
                     mode == ZoningMode.Left ? ZoningMode.Right :
                     mode == ZoningMode.Right ? ZoningMode.Left :
-                                               ZoningMode.Left;
+                    ZoningMode.Left;
                 m_ToolZoningMode.Update((int)next);
 #if DEBUG
                 Dbg($"InvertZoningSideOnly → Tool={ModeToStr(next)}");
@@ -337,7 +349,27 @@ namespace EasyZoning.Tools
             catch { }
         }
 
-        // NOTE: RmbPreviewToggle is now UNUSED in the tool; RMB is vanilla-only again.
+        // RMB behaviour in the tool uses this: cycles Left → Right → Both → Left.
+        public void CycleToolSideMode()
+        {
+            try
+            {
+                var mode = ToolZoningMode;
+                ZoningMode next =
+                    mode == ZoningMode.Left ? ZoningMode.Right :
+                    mode == ZoningMode.Right ? ZoningMode.Both :
+                    ZoningMode.Left;
+
+                m_ToolZoningMode.Update((int)next);
+#if DEBUG
+                Dbg($"CycleToolSideMode → Tool={ModeToStr(next)}");
+                LogToolDepths("CycleToolSideMode");
+#endif
+            }
+            catch { }
+        }
+
+        // Legacy; no longer used by the tool. Kept for compatibility.
         public void RmbPreviewToggle()
         {
             try
@@ -350,7 +382,7 @@ namespace EasyZoning.Tools
             catch { }
         }
 
-        private static bool ShouldShowFor(ToolBaseSystem? tool, Game.Prefabs.PrefabBase? prefab)
+        private static bool ShouldShowFor(ToolBaseSystem? tool, PrefabBase? prefab)
         {
             try
             {
@@ -360,7 +392,10 @@ namespace EasyZoning.Tools
                     return true;
                 return false;
             }
-            catch { return false; }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

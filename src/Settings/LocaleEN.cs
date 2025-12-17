@@ -32,13 +32,14 @@ namespace EasyZoning.Settings
                 { m_Settings.GetOptionGroupLocaleID(Setting.kAboutLinksGroup), "" },
 
                 // Toggles
-                { m_Settings.GetOptionLabelLocaleID(nameof(Setting.RemoveZonedCells)), "Prevent zoned cells from being removed" },
-                { m_Settings.GetOptionDescLocaleID(nameof(Setting.RemoveZonedCells)),  "Do not change already zoned cells during preview/apply.\n\n" +
-                "<[ ✓ ] Enabled recommended.>" },
+                { m_Settings.GetOptionLabelLocaleID(nameof(Setting.RemoveZonedCells)), "Do not reset existing zoned squares" },
+                { m_Settings.GetOptionDescLocaleID(nameof(Setting.RemoveZonedCells)),  "Do not reset already zoned cells (RCIO) during preview/apply.\n\n" +
+                "**[ ✓ ] Enabled recommended.**" },
 
                 { m_Settings.GetOptionLabelLocaleID(nameof(Setting.RemoveOccupiedCells)), "Prevent occupied cells from being removed" },
-                { m_Settings.GetOptionDescLocaleID(nameof(Setting.RemoveOccupiedCells)),  "Do not change occupied cells during preview/apply (e.g., buildings).\n\n" +
-                "<[ ✓ ] Enabled recommended.>" },
+                { m_Settings.GetOptionDescLocaleID(nameof(Setting.RemoveOccupiedCells)),
+                    "Do not change **occupied** cells during preview/apply or they might become condemned buildings.\n\n" +
+                "**[ ✓ ] Enabled recommended.**" },
 
                 // Keybind (only one visible)
                 { m_Settings.GetOptionLabelLocaleID(nameof(Setting.ToggleZoneTool)), "Toggle Panel" },

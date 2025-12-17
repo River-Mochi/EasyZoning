@@ -1,10 +1,6 @@
-// File: src/ARTZone/UI/src/types/assets.d.ts
-// Purpose: Make TS understand non-code asset imports used by webpack.
-
-declare module "*.scss";
-declare module "*.css";
-
-declare module "*.svg" { const url: string; export default url; }
-declare module "*.png" { const url: string; export default url; }
-declare module "*.jpg" { const url: string; export default url; }
-declare module "*.gif" { const url: string; export default url; }
+declare module '*.scss';
+declare module '*.css';
+declare module '*.svg'; // we recommed using SVGs for all the icons and UI elements
+declare module '*.png';
+declare module '*.jpg';
+declare module '*.gif';

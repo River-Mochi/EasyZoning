@@ -88,10 +88,8 @@
 
 	<!-- Convenience: make common toolchain files viewable in Properties/ (don’t fail if props are undefined) -->
 	<ItemGroup>
-		<None Include="$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))\Mod.props"
-			  Link="Properties\Mod.props" />
-		<None Include="$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))\Mod.targets"
-			  Link="Properties\Mod.targets" />
+		<None Include="$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))\Mod.props" Link="Properties\Mod.props" />
+		<None Include="$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))\Mod.targets" Link="Properties\Mod.targets" />
 	</ItemGroup>
 
 	<!-- Copy ONLY in-game localization files -->
@@ -121,40 +119,24 @@
 	<!-- Run npm ci AFTER C# build, only when needed:
        - first time (node_modules missing), OR
        - package-lock.json changed since last run (tracked by .stamp) -->
-	<Target Name="NpmInstallIfNeeded"
-			AfterTargets="Build"
-			Condition="Exists('$(ProjectDir)UI\package.json')"
-			Inputs="$(ProjectDir)UI\package-lock.json"
-			Outputs="$(ProjectDir)UI\node_modules\.stamp">
+	<Target Name="NpmInstallIfNeeded" AfterTargets="Build" Condition="Exists('$(ProjectDir)UI\package.json')" Inputs="$(ProjectDir)UI\package-lock.json" Outputs="$(ProjectDir)UI\node_modules\.stamp">
 		<Message Text="EZ UI: npm ci (first-time or lockfile changed)..." Importance="high" />
-		<Exec Command="$(NpmCmd) ci"
-			  WorkingDirectory="$(ProjectDir)UI"
-			  IgnoreExitCode="true">
+		<Exec Command="$(NpmCmd) ci" WorkingDirectory="$(ProjectDir)UI" IgnoreExitCode="true">
 			<Output TaskParameter="ExitCode" PropertyName="NpmCiExit" />
 		</Exec>
 		<!-- Soft-fail (warn instead of error) -->
-		<Warning Condition="'$(NpmCiExit)' != '0'"
-				 Text="EZ UI: 'npm ci' failed (exit $(NpmCiExit)). Continuing C# build." />
+		<Warning Condition="'$(NpmCiExit)' != '0'" Text="EZ UI: 'npm ci' failed (exit $(NpmCiExit)). Continuing C# build." />
 		<!-- On success, write/update the stamp -->
-		<WriteLinesToFile Condition="'$(NpmCiExit)' == '0'"
-						  File="$(ProjectDir)UI\node_modules\.stamp"
-						  Lines="ok"
-						  Overwrite="true" />
+		<WriteLinesToFile Condition="'$(NpmCiExit)' == '0'" File="$(ProjectDir)UI\node_modules\.stamp" Lines="ok" Overwrite="true" />
 	</Target>
 
 	<!-- Always run the UI bundle AFTER C# build; ensure it runs *after* NpmInstallIfNeeded -->
-	<Target Name="BuildUI"
-			AfterTargets="Build"
-			DependsOnTargets="NpmInstallIfNeeded"
-			Condition="Exists('$(ProjectDir)UI\package.json')">
+	<Target Name="BuildUI" AfterTargets="Build" DependsOnTargets="NpmInstallIfNeeded" Condition="Exists('$(ProjectDir)UI\package.json')">
 		<Message Text="EZ UI: npm run build ($(Configuration))..." Importance="high" />
-		<Exec Command="$(NpmCmd) run build"
-			  WorkingDirectory="$(ProjectDir)UI"
-			  IgnoreExitCode="true">
+		<Exec Command="$(NpmCmd) run build" WorkingDirectory="$(ProjectDir)UI" IgnoreExitCode="true">
 			<Output TaskParameter="ExitCode" PropertyName="NpmBuildExit" />
 		</Exec>
 		<!-- Soft-fail (warn instead of error) -->
-		<Warning Condition="'$(NpmBuildExit)' != '0'"
-				 Text="EZ UI: 'npm run build' failed (exit $(NpmBuildExit)). Continuing C# build." />
+		<Warning Condition="'$(NpmBuildExit)' != '0'" Text="EZ UI: 'npm run build' failed (exit $(NpmBuildExit)). Continuing C# build." />
 	</Target>
 </Project>

@@ -1,11 +1,13 @@
 // File: src/Systems/PanelBootStrapSystem.cs
-// Purpose:
-//   Wait until a RoadsServices donor/anchor exists, then call PanelBuilder.InstantiateTools().
-//   Arms only after a game load, then turns itself off.
 
 // NOTE: PanelBuilder is not used in Phase 1 of Easy Zoning.
 // All calls are commented out in Mod.OnLoad; RoadServices button is disabled.
 // Keep this file for possible Phase 2 re-enable.
+
+// Purpose:
+//   Wait until a RoadsServices donor/anchor exists, then call PanelBuilder.InstantiateTools().
+//   Arms only after a game load, then turns itself off.
+
 
 
 namespace EasyZoning.Systems

@@ -1,4 +1,3 @@
-// src/UI/tools/css-presence.js
 const { RawSource } = require("webpack").sources;
 
 exports.CSSPresencePlugin = class CSSPresencePlugin {

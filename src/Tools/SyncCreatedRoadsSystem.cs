@@ -5,6 +5,7 @@
 
 namespace EasyZoning.Tools
 {
+    using EasyZoning.Components;
     using Game;
     using Game.Common;
     using Game.Net;
