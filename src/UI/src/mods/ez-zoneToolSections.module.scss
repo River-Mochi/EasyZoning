@@ -1,10 +1,33 @@
-﻿// File: src/UI/src/mods/ez-zoneToolSections.module.scss
-// Purpose: Local layout overrides for the Easy Zoning "Zone Change" & "Contour" rows.
+﻿// src/mods/zoning-toolkit-panel.module.scss
+// Floating, draggable Zone Tools panel styling.
+// Keep minimal so vanilla handles visuals/layout as much as possible.
 
-.ezRow {
+.panel {
+    // Let vanilla place the panel; do not pin it.
+    // position: absolute;
+    // top: 50rem;
+    // Make the panel itself compact.
+    max-width: 260rem;
+    padding: 4rem 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4rem;
+}
+
+.panelToolModeRow {
     display: flex;
     flex-direction: row;
+    // Center the icons, keep rows tight.
+    justify-content: center;
     align-items: center;
-    justify-content: flex-start;
-    gap: 6rem; // small spacing between buttons (scaled with UI)
+    gap: 6rem;
+}
+
+/**
+ * Panel label on the left (e.g. "Zone Change").
+ * Hidden so only icon rows remain; tooltips explain meaning instead.
+ */
+.rowLabelNoWrap {
+    display: none;
+    white-space: nowrap;
 }

@@ -1,4 +1,4 @@
-// File: src/Settings/Setting.cs
+1// File: src/Settings/Setting.cs
 // Purpose: Options UI + One rebindable entry (Shift+Z).
 // Note: RMB is *not* declared here; the Game’s own RMB/cancel bindings remain vanilla.
 // Later in the tool, the RMB is read for preview flip.

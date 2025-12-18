@@ -478,57 +478,31 @@ namespace EasyZoning.Tools
             {
                 Entity e = SelectedEntities[index];
 
-                int2 current = default;
-                bool hasDepth = DepthLookup.TryGetComponent(e, out var existing);
-                if (hasDepth)
-                {
-                    current = existing.Depths;
-                }
-
-                const int fullDepth = 6;
-
-                bool wantLeft = ToolDepths.x > 0;
-                bool wantRight = ToolDepths.y > 0;
-
-                bool anyOn = current.x > 0 || current.y > 0;
-                bool allOff = current.x == 0 && current.y == 0;
-
-                int2 preview = current;
-
-                if (!wantLeft && !wantRight)
-                {
-                    // NONE icon: toggle — if all off, fill both; otherwise clear.
-                    preview = allOff ? new int2(fullDepth, fullDepth) : default;
-                }
-                else if (wantLeft && wantRight)
-                {
-                    // BOTH icon: toggle — if any side on, clear; if both off, fill both.
-                    preview = anyOn ? default : new int2(fullDepth, fullDepth);
-                }
-                else if (wantLeft && !wantRight)
-                {
-                    preview.x = current.x == 0 ? fullDepth : 0;
-                }
-                else // !wantLeft && wantRight
-                {
-                    preview.y = current.y == 0 ? fullDepth : 0;
-                }
+                // Preview depths are taken directly from current tool side mode.
+                int2 preview = ToolDepths;
 
                 if (ZoningPreviewLookup.TryGetComponent(e, out ZoningPreviewComponent data))
                 {
                     if (!math.all(data.Depths == preview))
                     {
-                        ECB.SetComponent(index, e, new ZoningPreviewComponent { Depths = preview });
+                        ECB.SetComponent(index, e, new ZoningPreviewComponent
+                        {
+                            Depths = preview
+                        });
                     }
                 }
                 else
                 {
-                    ECB.AddComponent(index, e, new ZoningPreviewComponent { Depths = preview });
+                    ECB.AddComponent(index, e, new ZoningPreviewComponent
+                    {
+                        Depths = preview
+                    });
                 }
 
                 ECB.AddComponent<Updated>(index, e);
             }
         }
+
 
         public struct CleanupTempJob : IJobParallelFor
         {
@@ -554,67 +528,44 @@ namespace EasyZoning.Tools
             public NativeArray<Entity>.ReadOnly Entities;
             public ComponentLookup<ZoningPreviewComponent> ZoningPreviewLookup;
             public ComponentLookup<ZoningDepthComponent> DepthLookup;
-            public int2 ToolDepths; // x = left bit, y = right bit
+            public int2 ToolDepths; // x = left depth, y = right depth
             public EntityCommandBuffer ECB;
 
             public void Execute()
             {
-                const int fullDepth = 6;
-
-                bool wantLeft = ToolDepths.x > 0;
-                bool wantRight = ToolDepths.y > 0;
-
                 foreach (Entity e in Entities)
                 {
-                    // Remove any preview left on the entity
+                    // Remove any preview left on the entity.
                     if (ZoningPreviewLookup.HasComponent(e))
                     {
                         ECB.RemoveComponent<ZoningPreviewComponent>(e);
                     }
 
-                    int2 current = default;
-                    bool hasDepth = DepthLookup.TryGetComponent(e, out var existing);
-                    if (hasDepth)
-                    {
-                        current = existing.Depths;
-                    }
+                    int2 newDepths = ToolDepths;
 
-                    int2 newDepths = current;
-
-                    bool anyOn = current.x > 0 || current.y > 0;
-                    bool allOff = current.x == 0 && current.y == 0;
-
-                    if (!wantLeft && !wantRight)
+                    if (DepthLookup.HasComponent(e))
                     {
-                        // NONE icon: toggle — if all off, fill both; otherwise clear.
-                        newDepths = allOff ? new int2(fullDepth, fullDepth) : default;
-                    }
-                    else if (wantLeft && wantRight)
-                    {
-                        // BOTH icon: toggle — if any side on, clear; if both off, fill both.
-                        newDepths = anyOn ? default : new int2(fullDepth, fullDepth);
-                    }
-                    else if (wantLeft && !wantRight)
-                    {
-                        // Left-only: toggle left, leave right as-is.
-                        newDepths.x = current.x == 0 ? fullDepth : 0;
-                    }
-                    else // !wantLeft && wantRight
-                    {
-                        // Right-only: toggle right, leave left as-is.
-                        newDepths.y = current.y == 0 ? fullDepth : 0;
-                    }
-
-                    if (hasDepth)
-                    {
-                        ECB.SetComponent(e, new ZoningDepthComponent { Depths = newDepths });
+                        ECB.SetComponent(e, new ZoningDepthComponent
+                        {
+                            Depths = newDepths
+                        });
                     }
                     else
                     {
-                        ECB.AddComponent(e, new ZoningDepthComponent { Depths = newDepths });
+                        ECB.AddComponent(e, new ZoningDepthComponent
+                        {
+                            Depths = newDepths
+                        });
                     }
+
+                    ECB.AddComponent<Updated>(e);
                 }
             }
         }
+
+
+
+
+
     }
 }

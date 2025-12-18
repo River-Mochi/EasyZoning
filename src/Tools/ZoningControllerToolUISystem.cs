@@ -346,25 +346,56 @@ namespace EasyZoning.Tools
             catch { }
         }
 
-        // RMB behaviour in the tool uses this: cycles Left → Right → Both → Left.
+        // RMB behaviour in the tool:
+        // - If mode is Both/None: toggle between Both and None.
+        // - If mode is Left/Right: toggle between Left and Right only.
         public void CycleToolSideMode()
         {
             try
             {
                 var mode = ToolZoningMode;
-                ZoningMode next =
-                    mode == ZoningMode.Left ? ZoningMode.Right :
-                    mode == ZoningMode.Right ? ZoningMode.Both :
-                    ZoningMode.Left;
+                ZoningMode next;
+
+                switch (mode)
+                {
+                    case ZoningMode.Left:
+                        // Swap to right side only.
+                        next = ZoningMode.Right;
+                        break;
+
+                    case ZoningMode.Right:
+                        // Swap to left side only.
+                        next = ZoningMode.Left;
+                        break;
+
+                    case ZoningMode.Both:
+                        // Both <-> None toggle.
+                        next = ZoningMode.None;
+                        break;
+
+                    case ZoningMode.None:
+                        // Both <-> None toggle.
+                        next = ZoningMode.Both;
+                        break;
+
+                    default:
+                        // Fallback: treat anything unexpected as "Both".
+                        next = ZoningMode.Both;
+                        break;
+                }
 
                 m_ToolZoningMode.Update((int)next);
+
 #if DEBUG
                 Dbg($"CycleToolSideMode → Tool={ModeToStr(next)}");
                 LogToolDepths("CycleToolSideMode");
 #endif
             }
-            catch { }
+            catch
+            {
+            }
         }
+
 
         // Legacy; no longer used by the tool. Kept for compatibility.
         public void RmbPreviewToggle()
