@@ -153,10 +153,11 @@ namespace EasyZoning.Tools
         }
 
         /// <summary>
-        /// Allow contour lines to be controlled by selectedSnap (the UI toggle).
+        /// Allow contour lines to be controlled by selectedSnap (UI toggle).
         /// The base implementation forces ContourLines OFF for most tools;
         /// clearing it from offMask makes the bit available.
         /// </summary>
+        // Keep contour lines controlled by our UI toggle without spamming logs.
         public override void GetAvailableSnapMask(out Snap onMask, out Snap offMask)
         {
             base.GetAvailableSnapMask(out onMask, out offMask);
@@ -175,6 +176,8 @@ namespace EasyZoning.Tools
                 onMask &= ~Snap.ContourLines;
                 offMask |= Snap.ContourLines;
             }
+
+            // NOTE: DO NOT log here. This method is called every frame and will flood the log.
         }
 
         protected override JobHandle OnUpdate(JobHandle inputDeps)

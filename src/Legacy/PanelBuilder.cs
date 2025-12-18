@@ -23,7 +23,7 @@ namespace EasyZoning.Systems
     using System.Diagnostics;
     using System.Reflection; // for DEBUG reflection donor scan
     using Colossal.Serialization.Entities;
-    using EasyZoning.Tools;
+    using EasyZoning.Legacy;
     using Game;
     using Game.Net;
     using Game.Prefabs;

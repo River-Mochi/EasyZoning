@@ -9,7 +9,7 @@
 //      = one Panel (clone donor, set custom icon/ID, hook to ToolBaseSystem,
 //        apply placement flags (underground, etc.).
 
-namespace EasyZoning.Tools
+namespace EasyZoning.Legacy
 {
     using System;
     using Game.Net;

@@ -106,15 +106,16 @@
 		</None>
 		<Folder Include="Utilities\" />
 	</ItemGroup>
-
 	<ItemGroup>
 		<None Include="..\research\**\*.*">
 			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</None>
 		<Folder Include="..\research\" />
 	</ItemGroup>
-
-
+	<ItemGroup>
+		<Compile Remove="Legacy\**\*.cs" />
+		<None Include="Legacy\**\*.cs" />
+	</ItemGroup>
 
 	<!-- Run npm ci AFTER C# build, only when needed:
        - first time (node_modules missing), OR
