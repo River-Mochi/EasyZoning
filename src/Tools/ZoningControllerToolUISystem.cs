@@ -30,15 +30,21 @@ namespace EasyZoning.Tools
         public ZoningMode RoadZoningMode => (ZoningMode)m_RoadZoningMode.value;
         public bool ContourEnabled => m_ContourEnabled.value;
 
-        // Shared helper: convert zoning mode bits to left/right depths.
+        /// <summary>
+        /// Convert a ZoningMode into engine depths.
+        /// Convention for this mod: Depths.x = LEFT side, Depths.y = RIGHT side.
+        /// </summary>
         private static int2 DepthsFromMode(ZoningMode mode)
         {
-            // Engine convention: x = LEFT, y = RIGHT
             return new int2(
-                (mode & ZoningMode.Left) != 0 ? 6 : 0,
-                (mode & ZoningMode.Right) != 0 ? 6 : 0);
+                (mode & ZoningMode.Left) != 0 ? 6 : 0, // x = left
+                (mode & ZoningMode.Right) != 0 ? 6 : 0  // y = right
+            );
         }
 
+        /// <summary>
+        /// Current Easy Zoning tool depths (update-existing-roads mode).
+        /// </summary>
         public int2 ToolDepths
         {
             get => DepthsFromMode(ToolZoningMode);
@@ -49,10 +55,14 @@ namespace EasyZoning.Tools
                     mode |= ZoningMode.Left;
                 if (value.y > 0)
                     mode |= ZoningMode.Right;
+
                 SetToolZoningMode(mode);
             }
         }
 
+        /// <summary>
+        /// Current vanilla road-tool depths (new-roads mode).
+        /// </summary>
         public int2 RoadDepths
         {
             get => DepthsFromMode(RoadZoningMode);
@@ -63,9 +73,11 @@ namespace EasyZoning.Tools
                     mode |= ZoningMode.Left;
                 if (value.y > 0)
                     mode |= ZoningMode.Right;
+
                 ChangeRoadZoningMode((int)mode);
             }
         }
+
 
 #if DEBUG
         private static void Dbg(string msg)

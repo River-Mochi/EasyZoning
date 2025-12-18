@@ -64,7 +64,7 @@ export const ZoningToolController: ModuleRegistryExtend = (Component: any) => {
         const FOCUS_DISABLED = resolver.FOCUS_DISABLED;
 
         const toolButtonClass = resolver.toolButtonTheme?.ToolButton ?? undefined;
-        const rowClass = styles.ezRow ?? undefined;
+        const rowClass = styles.row ?? undefined;
 
         const activeToolId = useValue(tool.activeTool$)?.id;
         const roadPrefabActive = useValue(IsRoadPrefab$) === true;
@@ -90,22 +90,22 @@ export const ZoningToolController: ModuleRegistryExtend = (Component: any) => {
 
         const tipBoth = translate(
             "ToolOptions.TOOLTIP_DESCRIPTION[EasyZoning.Zone_Controller.ZoningModeBothDescription]",
-            "Toggle zoning on both sides."
+            "Toggle zoning on Both sides."
         );
         const tipLeft = translate(
             "ToolOptions.TOOLTIP_DESCRIPTION[EasyZoning.Zone_Controller.ZoningModeLeftDescription]",
-            "Zone only the left side."
+            "Zone LEFT side."
         );
         const tipRight = translate(
             "ToolOptions.TOOLTIP_DESCRIPTION[EasyZoning.Zone_Controller.ZoningModeRightDescription]",
-            "Zone only the right side."
+            "Zone RIGHT side."
         );
         const tipContour = translate(
             "ToolOptions.TOOLTIP_DESCRIPTION[EasyZoning.Zone_Controller.ContourDescription]",
-            "Toggle terrain contour lines while Easy Zoning is active."
+            "Toggle terrain CONTOUR lines while Easy Zoning is active."
         );
 
-        // Contour row: only when our tool is actually active (update-existing-roads mode).
+        // Contour row: only when our tool is active (update-existing-roads mode).
         if (zoningToolOn) {
             result.props.children?.push(
                 <Section title={titleContour}>

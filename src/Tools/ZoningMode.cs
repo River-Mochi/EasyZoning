@@ -1,7 +1,5 @@
 // File: src/Tools/ZoningMode.cs
 // Purpose: Bitmask used by UI and tool systems for left/right/both zoning toggles.
-
-
 namespace EasyZoning.Tools
 {
     using System;

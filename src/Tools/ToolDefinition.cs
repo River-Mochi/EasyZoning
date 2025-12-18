@@ -1,4 +1,8 @@
 // File: src/Tools/ToolDefinition.cs
+// NOT USED by Easy Zoning anymore.
+// NOTE: PanelBuilder is not used in Phase 1 of Easy Zoning.
+// All calls are commented out in Mod.OnLoad; RoadServices button is disabled.
+// Keep this file for possible Phase 3 re-enable.
 // Purpose:
 //   Describes one EasyZoning tool so PanelBuilder can create a clickable tile in RoadsServices.
 //   PanelBuilder reads this struct to make One ToolDefinition

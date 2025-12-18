@@ -1,9 +1,8 @@
 // File: src/Systems/PanelBuilder.cs
-
+// NOT USED by Easy Zoning anymore.
 // NOTE: PanelBuilder is not used in Phase 1 of Easy Zoning.
 // All calls are commented out in Mod.OnLoad; RoadServices button is disabled.
-// Keep this file for possible Phase 2 re-enable.
-
+// Keep this file for possible Phase 3re-enable.
 // Purpose:
 //   Build/Register the clickable EasyZoning tools in RoadsServices Panel:
 //     - Find a donor button in RoadsServices (ex: Wide Sidewalk / Crosswalk).

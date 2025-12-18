@@ -161,9 +161,6 @@ namespace EasyZoning.Tools
         {
             base.GetAvailableSnapMask(out onMask, out offMask);
 
-            var origOn = onMask;
-            var origOff = offMask;
-
             bool contourOn = m_UISystem != null && m_UISystem.ContourEnabled;
 
             if (contourOn)
@@ -178,11 +175,6 @@ namespace EasyZoning.Tools
                 onMask &= ~Snap.ContourLines;
                 offMask |= Snap.ContourLines;
             }
-
-#if DEBUG
-            Mod.s_Log?.Info(
-                $"[EZ][Tool] GetAvailableSnapMask: contourOn={contourOn} origOn={origOn} origOff={origOff} → on={onMask} off={offMask}");
-#endif
         }
 
         protected override JobHandle OnUpdate(JobHandle inputDeps)

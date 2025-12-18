@@ -110,18 +110,19 @@ namespace EasyZoning.Tools
                 int depth;
                 if (ZoningPreviewLookup.TryGetComponent(roadEntity, out ZoningPreviewComponent zoningPreview))
                 {
-                    // FIX: swap x/y mapping at application point
-                    depth = left ? zoningPreview.Depths.y : zoningPreview.Depths.x;
+                    // Mod convention: Depths.x = LEFT, Depths.y = RIGHT.
+                    depth = left ? zoningPreview.Depths.x : zoningPreview.Depths.y;
                 }
                 else if (ZoningDepthLookup.TryGetComponent(roadEntity, out ZoningDepthComponent data))
                 {
-                    // FIX: swap x/y mapping at application point
-                    depth = left ? data.Depths.y : data.Depths.x;
+                    // Mod convention: Depths.x = LEFT, Depths.y = RIGHT.
+                    depth = left ? data.Depths.x : data.Depths.y;
                 }
                 else
                 {
                     return;
                 }
+
 
                 // Respect settings
                 if (Mod.Settings != null)

@@ -1,4 +1,4 @@
-// File: src/Tools/SyncCreatedRoadsSystem.cs
+// File: src/Tools/SyncNewRoadsSystem.cs
 // Purpose: adds ZoningDepth component to NEW created roads using current UI depths.
 // Without this, freshly drawn roads won’t inherit the chosen zoning change depths.
 
@@ -16,7 +16,7 @@ namespace EasyZoning.Tools
     using Unity.Jobs;
     using Unity.Mathematics;
 
-    public partial class SyncCreatedRoadsSystem : GameSystemBase
+    public partial class SyncNewRoadsSystem : GameSystemBase
     {
         private EntityQuery m_NewCreatedRoadsQuery;
         private ModificationBarrier4 m_ModificationBarrier = null!;
@@ -58,12 +58,15 @@ namespace EasyZoning.Tools
             if (m_UISystem == null)
                 return;
 
-            int2 depths = m_UISystem.ToolDepths;
-            ;
+            // For newly created roads, follow the vanilla road-tool state
+            // (RoadZoningMode), not the Easy Zoning update-tool state.
+            int2 depths = m_UISystem.RoadDepths;
 
-            // Only act when there are brand new roads AND the chosen depth is not vanilla default (6,6).
-            if (m_NewCreatedRoadsQuery.IsEmpty || !math.any(depths != new int2(6)))
+            // Only act when there are brand new roads AND the chosen depth
+            // is not vanilla default (6,6).
+            if (m_NewCreatedRoadsQuery.IsEmpty || !math.any(depths != new int2(6, 6)))
                 return;
+
 
             var ecb = m_ModificationBarrier.CreateCommandBuffer();
             NativeArray<Entity> entities = m_NewCreatedRoadsQuery.ToEntityArray(Allocator.TempJob);

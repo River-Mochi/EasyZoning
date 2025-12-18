@@ -1,33 +1,11 @@
-﻿// src/mods/zoning-toolkit-panel.module.scss
-// Floating, draggable Zone Tools panel styling.
-// Keep minimal so vanilla handles visuals/layout as much as possible.
+﻿// File: src/UI/src/mods/ez-zoneToolSections.module.scss
+// Purpose: Minimal helpers for Easy Zoning rows inside vanilla Tool Options panel.
+// Keep this tiny and let vanilla tool-button styling handle visuals.
 
-.panel {
-    // Let vanilla place the panel; do not pin it.
-    // position: absolute;
-    // top: 50rem;
-    // Make the panel itself compact.
-    max-width: 260rem;
-    padding: 4rem 6rem;
-    display: flex;
-    flex-direction: column;
-    gap: 4rem;
-}
-
-.panelToolModeRow {
+.row {
     display: flex;
     flex-direction: row;
-    // Center the icons, keep rows tight.
-    justify-content: center;
     align-items: center;
-    gap: 6rem;
-}
-
-/**
- * Panel label on the left (e.g. "Zone Change").
- * Hidden so only icon rows remain; tooltips explain meaning instead.
- */
-.rowLabelNoWrap {
-    display: none;
-    white-space: nowrap;
+    justify-content: flex-start;
+    gap: 4rem;
 }

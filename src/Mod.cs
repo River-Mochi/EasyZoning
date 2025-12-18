@@ -13,7 +13,7 @@ namespace EasyZoning
     using Colossal.IO.AssetDatabase;
     using Colossal.Logging;
     using EasyZoning.Settings;
-    using EasyZoning.Tools;       // <-- source of PanelBuilder/ToolDefinition
+    using EasyZoning.Tools;
     using Game;
     using Game.Input;
     using Game.Modding;
@@ -102,7 +102,7 @@ namespace EasyZoning
             // updateSystem.UpdateAt<PanelBootStrapSystem>(SystemUpdatePhase.Modification4);
             updateSystem.UpdateAt<ZoningControllerToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<ToolHighlightSystem>(SystemUpdatePhase.ToolUpdate);
-            updateSystem.UpdateAt<SyncCreatedRoadsSystem>(SystemUpdatePhase.Modification4);
+            updateSystem.UpdateAt<SyncNewRoadsSystem>(SystemUpdatePhase.Modification4);
             updateSystem.UpdateAt<SyncBlockSystem>(SystemUpdatePhase.Modification4B);
             updateSystem.UpdateAt<ZoningControllerToolUISystem>(SystemUpdatePhase.UIUpdate);
             updateSystem.UpdateAt<KeybindHotkeySystem>(SystemUpdatePhase.ToolUpdate);
