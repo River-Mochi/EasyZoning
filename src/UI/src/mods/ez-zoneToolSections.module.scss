@@ -1,11 +1,11 @@
 ﻿// File: src/UI/src/mods/ez-zoneToolSections.module.scss
-// Purpose: Minimal helpers for Easy Zoning rows inside vanilla Tool Options panel.
-// Keep this tiny and let vanilla tool-button styling handle visuals.
+// Purpose: Minimal layout for EZ rows inside the vanilla Tool Options panel.
+// Styling is kept light; vanilla tool-button theme controls colors and hover.
 
 .row {
     display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: flex-start;
-    gap: 4rem;
+    gap: 2rem; // tighter spacing so the panel stays narrow
 }
