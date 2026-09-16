@@ -1,17 +1,17 @@
 <Publish>
-	<!--This PublishConfiguration.xml file is required to publish a mod on Paradox website and is part of the CSII toolchain-->
+<!--This PublishConfiguration.xml file is required to publish a mod on Paradox website and is part of the CSII toolchain-->
 	
-	<!-- Id must be set in order to update existing mod; not required for publishing mod for the first time -->
-	<ModId Value="136261" />
+<!-- Id must be set in order to update existing mod; not required for publishing mod for the first time -->
+<ModId Value="136261" />
 
-	<!-- Display name -->
-	<DisplayName Value="Easy Zoning" />
+<!-- Display name -->
+<DisplayName Value="Easy Zoning" />
 
-	<!-- Short one-liner -->
-	<ShortDescription Value="Road Zoning and toggle Contour terrain lines. Roads can have zoning Left > Right > None > Both sides." />
+<!-- Short one-liner -->
+<ShortDescription Value="Road Zoning and toggle Contour terrain lines. Roads can have zoning Left > Right > None > Both sides." />
 
-	<!-- Long description (minimal markdown supported) -->
-	<LongDescription>
+<!-- Long description (minimal markdown supported) -->
+<LongDescription>
 ### Easy Zoning
 
 Custom zoning for new and existing roads. Newer alternative to Zone Tools.
@@ -70,44 +70,42 @@ No outline means it's already changed to the current selected option.
 ### Credits
 
 - River-mochi - author
-- thanks to Kemorno (ART mod, retired) and zeeshanabid 94 (zoning toolkit, retired)
+- thanks to Kemorno (art mod) and zeeshanabid 94 (zoning toolkit, retired)
 - yenyang - technical support and encouragement
 - Lucas - compatibility fix
 - Rouchesta - testing
 - CS2 modding community for testing, feedback
 
 </LongDescription>
-    <!--Thumbnail-->
+<!--Thumbnail-->
 <Thumbnail Value="Properties/EZthumbnail01.jpg" />
-    <!--Screenshot, can be set multiple times-->
+<!--Screenshot, can be set multiple times-->
 <Screenshot Value="Properties/10-image-EZ-Actions.jpg" />
 <Screenshot Value="Properties/20-image-EZ-Options.jpg" />
 <Screenshot Value="Properties/25-image-EZ-Visuals.jpg" />
 <Screenshot Value="Properties/30-image-EZ-ExistingRoads.jpg" />
 <Screenshot Value="Properties/50-image-EZ-Instructions.jpg" />
 <Screenshot Value="Properties/60-image-EZ-CN.jpg" />
-    <Screenshot Value="Properties/70-image-CombinedPreviews.jpg" />
+<Screenshot Value="Properties/70-image-CombinedPreviews.jpg" />
 <!--Tag, can be set multiple times-->
 <Tag Value="Code Mod" />
 
 <!--Link to the forum post where the mod can be discussed-->
 <ForumLink Value="https://forum.paradoxplaza.com/forum/threads/easy-zoning.1905089/" />
-
 <!-- Versioning of mod and base game-->
-<ModVersion Value="1.3.3" />
+<ModVersion Value="1.3.4" />
 <GameVersion Value="1.6.*" />
-
 <!-- Dependencies / DLC (optional) -->
 <Dependency Id="" />
 
 <!-- Changelog for new version. Single or multi line. Supports minimal markdown subset-->
 <ChangeLog>
-- add Pink and Purple Color options for the preview "zone to remove" Border and Fill.
-- update/fix all locale translation files.
+- Update for 1.6.2
+- internal, update shared lib files
 </ChangeLog>
 <!--External link. supported types are discord, github, youtube, twitch, x, paypal, patreon-->
-<ExternalLink Type="github"  Url="https://github.com/River-Mochi/EasyZoning" />
 <ExternalLink Type="discord" Url="https://discord.gg/gwXgvtyhjc" />
+<ExternalLink Type="github"  Url="https://github.com/River-Mochi/EasyZoning" />
 <!--Supported values Public, Private, Unlisted-->
 <AccessLevel Value="Public" />
 

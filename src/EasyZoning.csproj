@@ -8,10 +8,11 @@
         <PublishConfigScript>$(MSBuildProjectDirectory)\Scripts\Update-PublishConfig.ps1</PublishConfigScript>
 
 		<!-- Single source of truth for version number -->
-        <GameVersion>1.6.*</GameVersion>
-		<Version>1.3.3</Version>
+		<Version>1.3.4</Version>
 		<AssemblyVersion>$(Version).0</AssemblyVersion>
 		<FileVersion>$(Version).0</FileVersion>
+
+        <GameVersion>1.6.*</GameVersion>
 
 		<!-- Assembly Metadata-->
 		<AssemblyTitle>EasyZoning</AssemblyTitle>
@@ -96,8 +97,7 @@
 
     <!-- AUTO UPDATE PublishConfiguration GameVersion + ModVersion + nested mod.json "version" from $(Version).
          remove BOM, make EOL=LF, and left-align text -->
-    <Target Name="UpdatePublishConfigVersion" BeforeTargets="PrepareForBuild"
-            Condition="Exists('$(PublishConfigScript)') AND Exists('$(MSBuildProjectDirectory)\$(PublishConfigurationPath)')">
+    <Target Name="UpdatePublishConfigVersion" BeforeTargets="PrepareForBuild" Condition="Exists('$(PublishConfigScript)') AND Exists('$(MSBuildProjectDirectory)\$(PublishConfigurationPath)')">
 
         <Message Text="$(AssemblyTitle) PublishConfig: syncing ModVersion/GameVersion + normalizing EOL/BOM + left-aligning blocks..." Importance="high" />
 

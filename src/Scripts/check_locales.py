@@ -6,861 +6,659 @@
 # all copies or substantial portions of this code.
 # ================= </copyright> ======================
 
-# File: src/Scripts/check_locales.py
-# Version: 0.2.0
-# Purpose:
-#   Generic checker for C# Locale*.cs dictionary files.
-#
-#   What it checks:
-#   - Duplicate keys (runtime crash risk)
-#   - Missing / extra keys vs baseline (default: LocaleEN.cs)
-#   - Unbalanced markers in VALUES: **, < >, { }
-#   - Placeholder mismatch vs baseline: {0}, {1}, ...
-#
-#   Notes:
-#   - CS2 uses <...> as markup to highlight text in green.
-#     Those brackets are intentional and should be counted as valid markup.
-#   - The angle-bracket check ignores only true numeric comparators such as:
-#       1 < 2
-#       10 > 3
-#     It does NOT treat numbered instruction lines like:
-#       4. <RMB cycles>
-#     as comparators.
-#
-# Output behavior:
-#   - Default: print only locales with problems
-#   - If no problems anywhere: print "All checks GOOD - no problems detected."
-#   - Use --verbose to print every locale report
-#
-# Exit codes:
-#   - 0 = no problems
-#   - 1 = problems found
-#   - 2 = configuration / filesystem error
+# File: Shared Lib Scripts/check_locales.py
+# Version: 0.4.2
+# Checks C# Locale*.cs dictionaries against LocaleEN.cs.
+# Supports either Locale/ or Localization/ folders.
+
+from __future__ import annotations
 
 import argparse
 import re
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import DefaultDict, Dict, Iterable, List, Optional, Tuple
 
-RE_DICT_START = re.compile(
-    r"(?:return\s+)?new\s+Dictionary<string,\s*string>\s*\{",
-    re.IGNORECASE,
+DICT_START = re.compile(
+    r"""
+    (?:
+        # Older explicit Dictionary constructor:
+        # new Dictionary<string, string> { ... }
+        # new Dictionary<string, string>() { ... }
+        (?:return\s+)?
+        new\s+
+        (?:System\.Collections\.Generic\.)?
+        Dictionary\s*<\s*string\s*,\s*string\s*>
+        \s*(?:\(\s*\))?
+
+      |
+
+        # Newer target-typed constructor:
+        # Dictionary<string, string> entries = new() { ... }
+        (?:System\.Collections\.Generic\.)?
+        Dictionary\s*<\s*string\s*,\s*string\s*>
+        \s+[A-Za-z_]\w*
+        \s*=\s*
+        new\s*\(\s*\)
+    )
+    \s*\{
+    """,
+    re.IGNORECASE | re.VERBOSE,
 )
 
-# Common folders to skip during recursive auto-search.
-SKIP_DIR_NAMES = {
+# CS2 Options text uses <text> for green highlighted text.
+# Match only complete markers on one displayed line. 
+#  "value > 0" or "Options > Interface" are
+# handled separately by marker_issues().
+ANGLE_MARKER = re.compile(r"<([^<>\n]+)>")
+
+LOCALE_FOLDER_NAMES = ("Locale", "Localization")
+
+SKIP_DIRS = {
     ".git",
-    ".vs",
     ".idea",
+    ".vs",
     ".vscode",
-    "bin",
-    "obj",
-    "node_modules",
-    "dist",
-    "build",
     "__pycache__",
+    "bin",
+    "build",
+    "dist",
+    "node_modules",
+    "obj",
 }
 
 
-def norm_ws(s: str) -> str:
-    """Normalize whitespace so equivalent key expressions compare the same."""
-    return re.sub(r"\s+", "", s)
+def is_escaped(text: str, index: int) -> bool:
+    """True when the character at index has an odd number of preceding slashes."""
+    slash_count = 0
+    index -= 1
+
+    while index >= 0 and text[index] == "\\":
+        slash_count += 1
+        index -= 1
+
+    return slash_count % 2 == 1
 
 
-def find_repo_root(start: Path) -> Optional[Path]:
-    """
-    Walk upward to find a likely repo root.
+def decode_normal_string(body: str) -> str:
+    """Decode the C# escapes used in locale strings."""
+    escapes = {
+        "'": "'",
+        '"': '"',
+        "\\": "\\",
+        "0": "\0",
+        "a": "\a",
+        "b": "\b",
+        "f": "\f",
+        "n": "\n",
+        "r": "\r",
+        "t": "\t",
+        "v": "\v",
+    }
 
-    Preference order:
-    1) .git
-    2) .gitattributes
-    3) .gitignore
-    4) README.md / readme.md
+    result: List[str] = []
+    index = 0
 
-    This avoids assuming every repo has a /src folder.
-    """
-    p = start.resolve()
-
-    # Strongest signal: .git
-    for parent in [p] + list(p.parents):
-        if (parent / ".git").exists():
-            return parent
-
-    # Next-best signals
-    for marker in [".gitattributes", ".gitignore", "README.md", "readme.md"]:
-        for parent in [p] + list(p.parents):
-            if (parent / marker).exists():
-                return parent
-
-    return None
-
-def strip_comments_preserve_strings(text: str) -> str:
-    """
-    Remove // and /* */ comments without touching text inside strings.
-
-    Supports:
-    - normal strings: "..."
-    - verbatim strings: @"..."
-    """
-    out: List[str] = []
-    i = 0
-    n = len(text)
-    in_str = False
-    in_verbatim = False
-
-    while i < n:
-        ch = text[i]
-
-        if not in_str:
-            # Start of a string?
-            if ch == '"' and (i == 0 or text[i - 1] != "\\"):
-                if i > 0 and text[i - 1] == "@":
-                    in_str = True
-                    in_verbatim = True
-                else:
-                    in_str = True
-                    in_verbatim = False
-                out.append(ch)
-                i += 1
-                continue
-
-            # Line comment: //
-            if ch == "/" and i + 1 < n and text[i + 1] == "/":
-                i += 2
-                while i < n and text[i] not in "\r\n":
-                    i += 1
-                continue
-
-            # Block comment: /* ... */
-            if ch == "/" and i + 1 < n and text[i + 1] == "*":
-                i += 2
-                while i + 1 < n and not (text[i] == "*" and text[i + 1] == "/"):
-                    i += 1
-                i += 2 if i + 1 < n else 1
-                continue
-
-            out.append(ch)
-            i += 1
+    while index < len(body):
+        char = body[index]
+        if char != "\\" or index + 1 >= len(body):
+            result.append(char)
+            index += 1
             continue
 
-        # Inside a string
-        if in_verbatim:
-            # Verbatim string escape: ""
-            if ch == '"' and i + 1 < n and text[i + 1] == '"':
-                out.append('""')
-                i += 2
-                continue
-            if ch == '"':
-                in_str = False
-                in_verbatim = False
-                out.append(ch)
-                i += 1
-                continue
-            out.append(ch)
-            i += 1
+        escape = body[index + 1]
+        if escape in escapes:
+            result.append(escapes[escape])
+            index += 2
             continue
 
-        # Normal string closes on unescaped "
-        if ch == '"' and (i == 0 or text[i - 1] != "\\"):
-            in_str = False
-            out.append(ch)
-            i += 1
-            continue
+        if escape == "u" and index + 5 < len(body):
+            digits = body[index + 2:index + 6]
+            if re.fullmatch(r"[0-9A-Fa-f]{4}", digits):
+                result.append(chr(int(digits, 16)))
+                index += 6
+                continue
 
-        out.append(ch)
-        i += 1
+        if escape == "U" and index + 9 < len(body):
+            digits = body[index + 2:index + 10]
+            if re.fullmatch(r"[0-9A-Fa-f]{8}", digits):
+                result.append(chr(int(digits, 16)))
+                index += 10
+                continue
 
-    return "".join(out)
+        if escape == "x":
+            match = re.match(r"[0-9A-Fa-f]{1,4}", body[index + 2:])
+            if match:
+                result.append(chr(int(match.group(0), 16)))
+                index += 2 + len(match.group(0))
+                continue
+
+        # Preserve an unknown escape so the checker does not silently alter it.
+        result.extend(("\\", escape))
+        index += 2
+
+    return "".join(result)
 
 
-def find_dictionary_block(text: str) -> Optional[str]:
+def read_string(text: str, start: int) -> Optional[Tuple[str, str, int]]:
     """
-    Return only the contents inside the outer dictionary initializer braces.
+    Read one C# normal or verbatim string.
 
-    Example target:
-        new Dictionary<string, string>
-        {
-            { key, value },
-            ...
-        }
+    Returns (raw token, decoded value, next index), or None when start is not
+    the beginning of a supported string.
     """
-    clean = strip_comments_preserve_strings(text)
-    m = RE_DICT_START.search(clean)
-    if not m:
+    verbatim = text.startswith('@"', start)
+    quote_index = start + 1 if verbatim else start
+
+    if quote_index >= len(text) or text[quote_index] != '"':
         return None
 
-    start_brace = clean.find("{", m.end() - 1)
-    if start_brace < 0:
-        return None
+    index = quote_index + 1
+    body_start = index
 
-    depth = 1
-    in_str = False
-    in_verbatim = False
-    start = start_brace + 1
-    i = start
+    if verbatim:
+        decoded: List[str] = []
+        segment_start = index
 
-    while i < len(clean):
-        ch = clean[i]
-
-        if not in_str:
-            if ch == '"' and (i == 0 or clean[i - 1] != "\\"):
-                if i > 0 and clean[i - 1] == "@":
-                    in_str = True
-                    in_verbatim = True
-                else:
-                    in_str = True
-                    in_verbatim = False
-                i += 1
+        while index < len(text):
+            if text[index] != '"':
+                index += 1
                 continue
 
-            if ch == "{":
-                depth += 1
-            elif ch == "}":
-                depth -= 1
-                if depth == 0:
-                    return clean[start:i]
-
-            i += 1
-            continue
-
-        # Inside string
-        if in_verbatim:
-            if ch == '"' and i + 1 < len(clean) and clean[i + 1] == '"':
-                i += 2
+            if index + 1 < len(text) and text[index + 1] == '"':
+                decoded.append(text[segment_start:index])
+                decoded.append('"')
+                index += 2
+                segment_start = index
                 continue
-            if ch == '"':
-                in_str = False
-                in_verbatim = False
-                i += 1
-                continue
-            i += 1
+
+            decoded.append(text[segment_start:index])
+            end = index + 1
+            return text[start:end], "".join(decoded), end
+
+        raise ValueError("Unterminated verbatim string")
+
+    while index < len(text):
+        if text[index] == '"' and not is_escaped(text, index):
+            end = index + 1
+            body = text[body_start:index]
+            return text[start:end], decode_normal_string(body), end
+        index += 1
+
+    raise ValueError("Unterminated string")
+
+
+def strip_comments(text: str) -> str:
+    """Remove C# comments while preserving string literals."""
+    result: List[str] = []
+    index = 0
+
+    while index < len(text):
+        string = read_string(text, index)
+        if string is not None:
+            raw, _decoded, index = string
+            result.append(raw)
             continue
 
-        if ch == '"' and (i == 0 or clean[i - 1] != "\\"):
-            in_str = False
-            i += 1
+        if text.startswith("//", index):
+            newline = text.find("\n", index + 2)
+            if newline < 0:
+                break
+            result.append("\n")
+            index = newline + 1
             continue
 
-        i += 1
+        if text.startswith("/*", index):
+            end = text.find("*/", index + 2)
+            if end < 0:
+                raise ValueError("Unterminated block comment")
+            result.append("\n" * text[index:end + 2].count("\n"))
+            index = end + 2
+            continue
 
-    return None
+        result.append(text[index])
+        index += 1
+
+    return "".join(result)
 
 
-def extract_entries(block: str) -> List[str]:
-    """
-    Extract each top-level entry blob inside the dictionary block.
-
-    Each entry looks like:
-        { keyExpr, valueExpr }
-
-    Returns only the inside of the braces:
-        keyExpr, valueExpr
-    """
-    entries: List[str] = []
-    i = 0
-    n = len(block)
-    in_str = False
-    in_verbatim = False
+def find_matching_brace(text: str, opening: int) -> int:
+    """Find the closing brace matching text[opening]."""
     depth = 0
-    start = None
+    index = opening
 
-    while i < n:
-        ch = block[i]
-
-        if not in_str:
-            if ch == '"' and (i == 0 or block[i - 1] != "\\"):
-                if i > 0 and block[i - 1] == "@":
-                    in_str = True
-                    in_verbatim = True
-                else:
-                    in_str = True
-                    in_verbatim = False
-                i += 1
-                continue
-
-            if ch == "{":
-                if depth == 0:
-                    start = i + 1
-                depth += 1
-            elif ch == "}":
-                depth -= 1
-                if depth == 0 and start is not None:
-                    entries.append(block[start:i])
-                    start = None
-
-            i += 1
+    while index < len(text):
+        string = read_string(text, index)
+        if string is not None:
+            index = string[2]
             continue
 
-        if in_verbatim:
-            if ch == '"' and i + 1 < n and block[i + 1] == '"':
-                i += 2
-                continue
-            if ch == '"':
-                in_str = False
-                in_verbatim = False
-                i += 1
-                continue
-            i += 1
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return index
+
+        index += 1
+
+    raise ValueError("Unbalanced dictionary braces")
+
+
+def dictionary_body(text: str) -> str:
+    """Return the contents of the first Dictionary<string, string> initializer."""
+    clean = strip_comments(text)
+    match = DICT_START.search(clean)
+    if match is None:
+        raise ValueError("Dictionary<string, string> initializer not found")
+
+    opening = clean.rfind("{", match.start(), match.end())
+    closing = find_matching_brace(clean, opening)
+    return clean[opening + 1:closing]
+
+
+def dictionary_entries(body: str) -> Iterable[str]:
+    """Yield each top-level { key, value } entry."""
+    index = 0
+
+    while index < len(body):
+        string = read_string(body, index)
+        if string is not None:
+            index = string[2]
             continue
 
-        if ch == '"' and (i == 0 or block[i - 1] != "\\"):
-            in_str = False
-            i += 1
+        if body[index] != "{":
+            index += 1
             continue
 
-        i += 1
+        closing = find_matching_brace(body, index)
+        yield body[index + 1:closing]
+        index = closing + 1
 
-    return entries
+
+def split_entry(entry: str) -> Tuple[str, str]:
+    """Split one dictionary entry at its first top-level comma."""
+    parentheses = 0
+    brackets = 0
+    braces = 0
+    index = 0
+
+    while index < len(entry):
+        string = read_string(entry, index)
+        if string is not None:
+            index = string[2]
+            continue
+
+        char = entry[index]
+        if char == "(":
+            parentheses += 1
+        elif char == ")":
+            parentheses -= 1
+        elif char == "[":
+            brackets += 1
+        elif char == "]":
+            brackets -= 1
+        elif char == "{":
+            braces += 1
+        elif char == "}":
+            braces -= 1
+        elif char == "," and parentheses == brackets == braces == 0:
+            return entry[:index], entry[index + 1:]
+
+        index += 1
+
+    raise ValueError(f"Dictionary entry has no top-level comma: {entry.strip()[:80]}")
 
 
-def split_top_level_comma(entry: str) -> Optional[Tuple[str, str]]:
+def normalize_key(expression: str) -> str:
+    """Remove whitespace outside strings, preserving literal-key whitespace."""
+    result: List[str] = []
+    index = 0
+
+    while index < len(expression):
+        string = read_string(expression, index)
+        if string is not None:
+            raw, _decoded, index = string
+            result.append(raw)
+            continue
+
+        if not expression[index].isspace():
+            result.append(expression[index])
+        index += 1
+
+    return "".join(result)
+
+
+def literal_text(expression: str) -> str:
+    """Concatenate the normal and verbatim string literals in an expression."""
+    result: List[str] = []
+    index = 0
+
+    while index < len(expression):
+        string = read_string(expression, index)
+        if string is None:
+            index += 1
+            continue
+
+        _raw, decoded, index = string
+        result.append(decoded)
+
+    return "".join(result)
+
+
+def placeholders(text: str) -> Counter[str]:
+    """Return composite-format placeholder numbers; order does not matter."""
+    unescaped = text.replace("{{", "").replace("}}", "")
+    found = re.findall(r"\{(\d+)(?:,[^{}]+)?(?::[^{}]+)?\}", unescaped)
+    return Counter(found)
+
+
+def _angle_context(text: str, index: int, radius: int = 28) -> str:
+    """Return a short one-line excerpt around an angle marker."""
+    line_start = text.rfind("\n", 0, index) + 1
+    line_end = text.find("\n", index)
+    if line_end < 0:
+        line_end = len(text)
+
+    start = max(line_start, index - radius)
+    end = min(line_end, index + radius + 1)
+    excerpt = text[start:end].strip()
+    if start > line_start:
+        excerpt = "…" + excerpt
+    if end < line_end:
+        excerpt += "…"
+    return excerpt
+
+
+def _is_angle_operator_or_separator(text: str, index: int) -> bool:
     """
-    Split "keyExpr, valueExpr" on the first comma at top level.
+    True for a literal comparison/operator/separator rather than green markup.
 
-    Ignores commas inside:
-    - parentheses
-    - strings
+    Supported examples:
+      value > 0
+      5 < Maximum
+      value >= threshold
+      value<maximum
+      Options > Interface > Text Scaling
+      left -> right
     """
-    s = entry.strip()
-    depth_paren = 0
-    in_str = False
-    in_verbatim = False
+    char = text[index]
+    left = text[index - 1] if index > 0 else ""
+    right = text[index + 1] if index + 1 < len(text) else ""
 
-    i = 0
-    while i < len(s):
-        ch = s[i]
+    # Normal spaced comparisons and UI breadcrumb separators.
+    if left and right and left.isspace() and right.isspace():
+        return True
 
-        if not in_str:
-            if ch == '"' and (i == 0 or s[i - 1] != "\\"):
-                if i > 0 and s[i - 1] == "@":
-                    in_str = True
-                    in_verbatim = True
-                else:
-                    in_str = True
-                    in_verbatim = False
-                i += 1
-                continue
+    # Compact comparison forms such as x>0, 5<max, x>=0, or x<=max.
+    if left and right and left.isalnum() and right.isalnum():
+        return True
+    if char == ">" and right and right.isdigit():
+        return True
+    if char == "<" and left and left.isdigit():
+        return True
+    if (left and left in "<>=") or (right and right in "<>="):
+        return True
 
-            if ch == "(":
-                depth_paren += 1
-            elif ch == ")":
-                depth_paren = max(0, depth_paren - 1)
-            elif ch == "," and depth_paren == 0:
-                return s[:i].strip(), s[i + 1 :].strip()
+    # Text arrows are not green markup.
+    if left == "-" or right == "-":
+        return True
 
-            i += 1
-            continue
-
-        if in_verbatim:
-            if ch == '"' and i + 1 < len(s) and s[i + 1] == '"':
-                i += 2
-                continue
-            if ch == '"':
-                in_str = False
-                in_verbatim = False
-                i += 1
-                continue
-            i += 1
-            continue
-
-        if ch == '"' and (i == 0 or s[i - 1] != "\\"):
-            in_str = False
-            i += 1
-            continue
-
-        i += 1
-
-    return None
+    return False
 
 
-def decode_csharp_string_literal(token: str) -> str:
-    """Decode one C# string literal into plain text."""
-    token = token.strip()
-
-    # Verbatim string: @"..."
-    if token.startswith('@"') and token.endswith('"'):
-        body = token[2:-1]
-        return body.replace('""', '"')
-
-    # Normal string: "..."
-    if token.startswith('"') and token.endswith('"'):
-        body = token[1:-1]
-        body = body.replace(r"\\", "\\").replace(r"\"", '"')
-        body = body.replace(r"\n", "\n").replace(r"\r", "\r").replace(r"\t", "\t")
-        return body
-
-    return ""
-
-
-def extract_string_literals(expr: str) -> str:
-    """
-    Concatenate all string literals found in an expression.
-
-    Example:
-        "Hello " + "World"
-    becomes:
-        "Hello World"
-
-    If the expression contains no string literals, returns "".
-    """
-    parts: List[str] = []
-    i = 0
-    n = len(expr)
-
-    while i < n:
-        ch = expr[i]
-
-        # Verbatim string: @"..."
-        if ch == "@" and i + 1 < n and expr[i + 1] == '"':
-            j = i + 2
-            while j < n:
-                if expr[j] == '"' and j + 1 < n and expr[j + 1] == '"':
-                    j += 2
-                    continue
-                if expr[j] == '"':
-                    parts.append(decode_csharp_string_literal(expr[i : j + 1]))
-                    i = j + 1
-                    break
-                j += 1
-            else:
-                break
-            continue
-
-        # Normal string: "..."
-        if ch == '"':
-            j = i + 1
-            while j < n:
-                if expr[j] == '"' and expr[j - 1] != "\\":
-                    parts.append(decode_csharp_string_literal(expr[i : j + 1]))
-                    i = j + 1
-                    break
-                j += 1
-            else:
-                break
-            continue
-
-        i += 1
-
-    return "".join(parts)
-
-
-def placeholders(s: str) -> List[str]:
-    """
-    Extract placeholder numbers from text.
-
-    Example:
-        "Speed {0} of {1}"
-    returns:
-        ["0", "1"]
-
-    Escaped double braces {{ }} are ignored.
-    """
-    s2 = s.replace("{{", "").replace("}}", "")
-    return re.findall(r"\{(\d+)\}", s2)
-
-
-def _prev_nonspace_same_line(s: str, i: int) -> str:
-    """Previous non-space char on the same line, or '' if none."""
-    j = i - 1
-    while j >= 0 and s[j] in " \t":
-        j -= 1
-    if j < 0 or s[j] in "\r\n":
-        return ""
-    return s[j]
-
-
-def _next_nonspace_same_line(s: str, i: int) -> str:
-    """Next non-space char on the same line, or '' if none."""
-    j = i + 1
-    while j < len(s) and s[j] in " \t":
-        j += 1
-    if j >= len(s) or s[j] in "\r\n":
-        return ""
-    return s[j]
-
-
-def count_markup_angle_brackets(s: str) -> Tuple[int, int]:
-    """
-    Count '<' and '>' intended as CS2 markup to highlight words.
-
-    Important:
-    - <some words> are valid markup CS2 shows as green highlighted text.
-    - Only ignore real numeric comparators where BOTH sides look numeric
-      on the same line, such as:
-          1 < 2
-          10 > 3
-
-    Avoids false positives for numbered instructions like:
-        4. <RMB cycles>
-    """
-    lt = 0
-    gt = 0
-
-    for i, ch in enumerate(s):
-        if ch not in "<>":
-            continue
-
-        # Ignore readable comparator text such as:
-        #   balance < threshold
-        #   balance > threshold
-        #
-        # CS2 green markup normally looks like <Highlight me>, without spaces
-        # directly inside the brackets. This rule intentionally ignores only
-        # angle brackets with spaces on both immediate sides.
-        if (
-            i > 0
-            and i + 1 < len(s)
-            and s[i - 1] in " \t"
-            and s[i + 1] in " \t"
-        ):
-            continue
-
-        left = _prev_nonspace_same_line(s, i)
-        right = _next_nonspace_same_line(s, i)
-
-        left_digit = left.isdigit() if left else False
-        right_digit = right.isdigit() if right else False
-
-        # Ignore true numeric comparators.
-        if left_digit and right_digit:
-            continue
-
-
-        if ch == "<":
-            lt += 1
-        else:
-            gt += 1
-
-    return lt, gt
-
-
-def marker_issues(s: str) -> List[str]:
-    """
-    Check a text value for simple markup balance issues.
-
-    Checks:
-    - ** pairs
-    - < >
-    - { }
-
-    Escaped double braces {{ }} are ignored for brace counting.
-    """
+def marker_issues(text: str) -> List[str]:
+    """Check bold, format placeholders, and CS2 green-text markers."""
     issues: List[str] = []
 
-    bold = s.count("**")
-    if bold % 2 != 0:
-        issues.append(f'unbalanced "**" (count={bold})')
+    if text.count("**") % 2:
+        issues.append("unbalanced ** marker")
 
-    lt, gt = count_markup_angle_brackets(s)
-    if lt != gt:
-        issues.append(f'unbalanced "<" vs ">" (lt={lt}, gt={gt})')
+    brace_text = text.replace("{{", "").replace("}}", "")
+    if brace_text.count("{") != brace_text.count("}"):
+        issues.append(
+            f"unbalanced braces: {{={brace_text.count('{')} }}={brace_text.count('}')}"
+        )
 
-    s2 = s.replace("{{", "").replace("}}", "")
-    opens = s2.count("{")
-    closes = s2.count("}")
-    if opens != closes:
-        issues.append(f'unbalanced "{{" vs "}}" (opens={opens}, closes={closes})')
+    # Mask valid <text> markers first. This correctly accepts markers whose
+    # contents end in a number, such as <Mod default = 40,000>.
+    remaining = list(text)
+    for match in ANGLE_MARKER.finditer(text):
+        content = match.group(1)
+
+        # CS2 markup is written without padding directly inside < and >.
+        # Leave malformed forms such as < text> or <text > for the scan below.
+        if content[0].isspace() or content[-1].isspace():
+            continue
+
+        for index in range(match.start(), match.end()):
+            remaining[index] = " "
+
+    residual = "".join(remaining)
+    unmatched_left: List[int] = []
+    unmatched_right: List[int] = []
+
+    for index, char in enumerate(residual):
+        if char not in "<>":
+            continue
+        if _is_angle_operator_or_separator(residual, index):
+            continue
+
+        if char == "<":
+            unmatched_left.append(index)
+        else:
+            unmatched_right.append(index)
+
+    for index in unmatched_left:
+        issues.append(
+            f"unclosed < highlight marker near: {_angle_context(text, index)!r}"
+        )
+    for index in unmatched_right:
+        issues.append(
+            f"unopened > highlight marker near: {_angle_context(text, index)!r}"
+        )
 
     return issues
 
 
 def load_locale(path: Path) -> Tuple[Dict[str, str], List[str], Dict[str, str]]:
-    """
-    Load one locale file.
-
-    Returns:
-      - values: map of normalized key -> concatenated literal text
-      - keys_raw: list of normalized keys in original order (used for duplicate detection)
-      - pretty: map of normalized key -> original key expression for readable reporting
-    """
-    text = path.read_text(encoding="utf-8")
-    block = find_dictionary_block(text)
-    if block is None:
-        raise RuntimeError("Dictionary initializer not found")
-
-    entries = extract_entries(block)
-
+    """Load normalized key/value data plus display names for reporting."""
+    body = dictionary_body(path.read_text(encoding="utf-8-sig"))
     values: Dict[str, str] = {}
-    keys_raw: List[str] = []
-    pretty: Dict[str, str] = {}
+    keys: List[str] = []
+    display: Dict[str, str] = {}
 
-    for e in entries:
-        split = split_top_level_comma(e)
-        if not split:
+    for entry in dictionary_entries(body):
+        key_expression, value_expression = split_entry(entry)
+        key = normalize_key(key_expression)
+        if not key:
             continue
 
-        key_expr, val_expr = split
-        k_norm = norm_ws(key_expr)
+        keys.append(key)
+        values[key] = literal_text(value_expression)
+        display.setdefault(key, " ".join(key_expression.split()))
 
-        keys_raw.append(k_norm)
-
-        if k_norm not in pretty:
-            pretty[k_norm] = key_expr.strip()
-
-        values[k_norm] = extract_string_literals(val_expr)
-
-    return values, keys_raw, pretty
+    return values, keys, display
 
 
-def _common_loc_dir_candidates(repo_root: Path) -> List[Path]:
-    """Common locale folder guesses."""
-    return [
-        repo_root / "src" / "Localization",
-        repo_root / "Localization",
-        repo_root / "src" / "Settings",   # legacy
-        repo_root / "Settings",           # legacy without /src
+def _is_skipped_path(path: Path) -> bool:
+    """True when path is inside a skipped repo/build/dependency folder."""
+    return any(part in SKIP_DIRS for part in path.parts)
+
+
+def find_localization_dir(repo: Path, baseline: str) -> Path:
+    """Find the locale folder beneath repo. Supports both Locale/ and Localization/."""
+    for folder_name in LOCALE_FOLDER_NAMES:
+        direct = repo / folder_name
+        if (direct / baseline).is_file():
+            return direct
+
+    matches = [
+        path.parent
+        for path in repo.rglob(baseline)
+        if not _is_skipped_path(path)
+        and path.parent.name in LOCALE_FOLDER_NAMES
     ]
 
+    unique = sorted(set(matches))
+    if not unique:
+        expected = " or ".join(
+            f"{folder_name}/{baseline}" for folder_name in LOCALE_FOLDER_NAMES
+        )
+        raise FileNotFoundError(
+            f"Could not find {expected} under {repo}"
+        )
 
-def _score_baseline_parent(parent: Path) -> int:
-    """
-    Score a folder for how likely it is to be the real locale folder.
-    Higher score wins.
-    """
-    score = 0
-    parts_lower = [p.lower() for p in parent.parts]
-    name_lower = parent.name.lower()
+    if len(unique) > 1:
+        locations = "\n  ".join(str(path) for path in unique)
+        raise ValueError(
+            "Multiple locale folders found. Use --localization:\n  "
+            + locations
+        )
 
-    if name_lower == "localization":
-        score += 100
-    elif name_lower == "settings":
-        score += 80
-
-    if "src" in parts_lower:
-        score += 10
-
-    # Slight preference for shallower paths.
-    score -= len(parent.parts)
-    return score
+    return unique[0]
 
 
-def _recursive_find_loc_dir(repo_root: Path, baseline: str) -> Optional[Path]:
-    """
-    Fallback search: recursively look for the baseline file anywhere under repo_root,
-    skipping obvious junk folders.
-    """
-    parents_seen: Set[Path] = set()
-    candidates: List[Tuple[int, Path]] = []
+def check_locale(
+    path: Path,
+    baseline_values: Dict[str, str],
+    baseline_keys: set[str],
+) -> Tuple[bool, List[str]]:
+    """Check one locale and return (has_problem, report lines)."""
+    values, raw_keys, display = load_locale(path)
+    key_set = set(values)
 
-    for p in repo_root.rglob(baseline):
-        if not p.is_file():
-            continue
-
-        parts_lower = {part.lower() for part in p.parts}
-        if parts_lower & SKIP_DIR_NAMES:
-            continue
-
-        parent = p.parent
-        if parent in parents_seen:
-            continue
-
-        parents_seen.add(parent)
-        candidates.append((_score_baseline_parent(parent), parent))
-
-    if not candidates:
-        return None
-
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    return candidates[0][1]
-
-
-def resolve_loc_dir(repo_root: Path, baseline: str, loc_dir_arg: str) -> Optional[Path]:
-    """
-    Resolve the locale directory.
-
-    Behavior:
-    - If --loc-dir was given, use it directly relative to repo root.
-    - Otherwise try common locations first.
-    - If still not found, do a recursive search for the baseline file.
-    """
-    if loc_dir_arg.lower() != "auto":
-        return repo_root / loc_dir_arg
-
-    for c in _common_loc_dir_candidates(repo_root):
-        if c.exists() and (c / baseline).exists():
-            return c
-
-    return _recursive_find_loc_dir(repo_root, baseline)
-
-
-def _print_problem_report(
-    filename: str,
-    key_count: int,
-    dup: List[str],
-    missing: List[str],
-    extra: List[str],
-    marker_warn: Dict[str, List[str]],
-    placeholder_warn: Dict[str, List[str]],
-    pretty: Dict[str, str],
-    base_pretty: Dict[str, str],
-) -> None:
-    """Print one locale report."""
-    print("\n" + "=" * 70)
-    print(filename)
-    print(
-        f"Keys: {key_count} | Duplicates: {len(dup)} | "
-        f"Missing vs baseline: {len(missing)} | Extra vs baseline: {len(extra)}"
+    duplicate_keys = sorted(
+        display.get(key, key)
+        for key, count in Counter(raw_keys).items()
+        if count > 1
     )
-    print(
-        f"Marker warnings: {len(marker_warn)} | "
-        f"Placeholder warnings: {len(placeholder_warn)}"
-    )
+    missing = sorted(baseline_keys - key_set)
+    extra = sorted(key_set - baseline_keys)
+    warnings: DefaultDict[str, List[str]] = defaultdict(list)
 
-    if dup:
-        print("!! DUPLICATE KEYS (runtime crash risk):")
-        for k in dup:
-            print(f"   {pretty.get(k, k)}")
+    for key, value in values.items():
+        for issue in marker_issues(value):
+            warnings[display.get(key, key)].append(issue)
 
+        baseline_value = baseline_values.get(key, "")
+        if baseline_value and value:
+            expected = placeholders(baseline_value)
+            actual = placeholders(value)
+            if expected != actual:
+                warnings[display.get(key, key)].append(
+                    f"placeholders differ: EN={dict(expected)} locale={dict(actual)}"
+                )
+
+    report: List[str] = [f"{path.name}: {len(values)} keys"]
+
+    if duplicate_keys:
+        report.append("  Duplicate keys:")
+        report.extend(f"    - {item}" for item in duplicate_keys)
     if missing:
-        print("-- Missing keys:")
-        for k in missing:
-            print(f"   {base_pretty.get(k, k)}")
-
+        report.append("  Missing keys:")
+        report.extend(f"    - {item}" for item in missing)
     if extra:
-        print("-- Extra keys:")
-        for k in extra:
-            print(f"   {pretty.get(k, k)}")
+        report.append("  Extra keys:")
+        report.extend(f"    - {item}" for item in extra)
+    if warnings:
+        report.append("  Value warnings:")
+        for key in sorted(warnings):
+            report.append(f"    - {key}")
+            report.extend(f"      {warning}" for warning in warnings[key])
 
-    def show(title: str, d: Dict[str, List[str]]) -> None:
-        if not d:
-            return
-        print(f"-- {title}:")
-        shown = 0
-        for k in sorted(d.keys()):
-            label = pretty.get(k, k)
-            for msg in d[k]:
-                print(f"   {label}: {msg}")
-                shown += 1
-                if shown >= 30:
-                    print("   ... (more omitted)")
-                    return
+    has_problem = bool(duplicate_keys or missing or extra or warnings)
+    return has_problem, report
 
-    show("Marker issues", marker_warn)
-    show("Placeholder issues", placeholder_warn)
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Check C# Locale*.cs dictionaries against LocaleEN.cs."
+    )
+    parser.add_argument(
+        "--repo",
+        type=Path,
+        default=Path.cwd(),
+        help="Repository root to scan (default: current directory).",
+    )
+    parser.add_argument(
+        "--localization",
+        type=Path,
+        help="Exact locale directory, such as Locale or Localization; overrides --repo discovery.",
+    )
+    parser.add_argument(
+        "--baseline",
+        default="LocaleEN.cs",
+        help="Baseline filename (default: LocaleEN.cs).",
+    )
+    parser.add_argument(
+        "--pattern",
+        default="Locale*.cs",
+        help="Locale filename pattern (default: Locale*.cs).",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print passing locale files too.",
+    )
+    return parser.parse_args()
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument(
-        "--loc-dir",
-        default="auto",
-        help='Localization directory relative to repo root, or "auto" (default: auto)',
-    )
-    ap.add_argument(
-        "--baseline",
-        default="LocaleEN.cs",
-        help="Baseline file name (default: LocaleEN.cs)",
-    )
-    ap.add_argument(
-        "--pattern",
-        default="Locale*.cs",
-        help="Glob pattern inside loc-dir (default: Locale*.cs)",
-    )
-    ap.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Print every locale result even if clean",
-    )
-    args = ap.parse_args()
+    args = parse_args()
 
-    repo_root = find_repo_root(Path(__file__).resolve())
-    if repo_root is None:
-        print("ERROR: Repo root not found.")
-        print("Expected one of these markers somewhere above the script:")
-        print("  - .git")
-        print("  - .gitattributes")
-        print("  - .gitignore")
-        print("  - README.md")
-        return 2
-
-    loc_dir = resolve_loc_dir(repo_root, args.baseline, args.loc_dir)
-    if loc_dir is None or not loc_dir.exists():
-        print("ERROR: Localization dir not found.")
-        print("Tried common locations:")
-        for c in _common_loc_dir_candidates(repo_root):
-            print(f"  - {c}")
-        print("Also tried recursive search for the baseline file.")
-        print('Override with: --loc-dir "src/Localization" (or the correct folder).')
-        return 2
-
-    base_path = loc_dir / args.baseline
-    if not base_path.exists():
-        print(f"ERROR: Baseline not found: {base_path}")
-        return 2
-
-    base_map, _base_keys_raw, base_pretty = load_locale(base_path)
-    base_keys = set(base_map.keys())
-
-    print(f"Repo root: {repo_root}")
-    print(f"Localization dir: {loc_dir}")
-    print(f"Baseline: {args.baseline}")
-    print(f"Baseline keys: {len(base_keys)}")
-
-    files = sorted(loc_dir.glob(args.pattern))
-    if not files:
-        print(f"ERROR: No files match {loc_dir / args.pattern}")
-        return 2
-
-    any_problem = False
-
-    for p in files:
-        try:
-            m, keys_raw, pretty = load_locale(p)
-        except Exception as ex:
-            any_problem = True
-            print("\n" + "=" * 60)
-            print(p.name)
-            print(f"ERROR parsing locale: {ex}")
-            continue
-
-        dup = [k for k, c in Counter(keys_raw).items() if c > 1]
-        missing = sorted(base_keys - set(m.keys()))
-        extra = sorted(set(m.keys()) - base_keys)
-
-        marker_warn: Dict[str, List[str]] = defaultdict(list)
-        placeholder_warn: Dict[str, List[str]] = defaultdict(list)
-
-        for k_norm, val in m.items():
-            # Check marker balance only when there is literal text.
-            if val:
-                for iss in marker_issues(val):
-                    marker_warn[k_norm].append(iss)
-
-            # Compare placeholders only when both sides have literal text.
-            # This avoids noisy warnings for intentionally blank descriptions.
-            base_val = base_map.get(k_norm, "")
-            if base_val and val:
-                pb = placeholders(base_val)
-                ph = placeholders(val)
-                if pb != ph:
-                    placeholder_warn[k_norm].append(
-                        f"placeholders differ: baseline={pb} locale={ph}"
-                    )
-
-        has_problem = bool(dup or missing or extra or marker_warn or placeholder_warn)
-        if has_problem:
-            any_problem = True
-
-        if (not args.verbose) and (not has_problem):
-            continue
-
-        _print_problem_report(
-            filename=p.name,
-            key_count=len(m),
-            dup=dup,
-            missing=missing,
-            extra=extra,
-            marker_warn=marker_warn,
-            placeholder_warn=placeholder_warn,
-            pretty=pretty,
-            base_pretty=base_pretty,
+    try:
+        repo = args.repo.resolve()
+        localization = (
+            args.localization.resolve()
+            if args.localization is not None
+            else find_localization_dir(repo, args.baseline)
         )
+        baseline_path = localization / args.baseline
+        if not baseline_path.is_file():
+            raise FileNotFoundError(f"Baseline not found: {baseline_path}")
 
-    if not any_problem and not args.verbose:
-        print("\nAll checks GOOD - no problems detected.")
+        baseline_values, _baseline_raw, _baseline_display = load_locale(
+            baseline_path
+        )
+        baseline_keys = set(baseline_values)
+        locale_files = sorted(localization.glob(args.pattern))
+        if not locale_files:
+            raise FileNotFoundError(
+                f"No files matched {localization / args.pattern}"
+            )
 
-    return 1 if any_problem else 0
+        print(f"Localization: {localization}")
+        print(f"Baseline: {args.baseline} ({len(baseline_keys)} keys)")
+
+        any_problem = False
+        for path in locale_files:
+            try:
+                has_problem, report = check_locale(
+                    path,
+                    baseline_values,
+                    baseline_keys,
+                )
+            except Exception as error:
+                has_problem = True
+                report = [f"{path.name}: ERROR: {error}"]
+
+            any_problem |= has_problem
+            if has_problem or args.verbose:
+                print()
+                print("\n".join(report))
+
+        if any_problem:
+            print("\nLocale check FAILED.")
+            return 1
+
+        print("All locale checks GOOD.")
+        return 0
+
+    except (FileNotFoundError, OSError, ValueError) as error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

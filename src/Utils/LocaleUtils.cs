@@ -6,19 +6,15 @@
 // all copies or substantial portions of this code.
 // ================= </copyright> ======================
 
-// File: Utils/LocaleUtils.cs
-// Purpose: Safe localization lookup + safe formatting helpers for Options UI strings.
-// Notes:
-// - Read-only: never mutates localization state.
-// - Null-safe: returns fallback when LocalizationManager/dictionary is unavailable.
-// - Culture-aware: numeric formatting uses current culture.
+// File: LocaleUtils.cs
+// Version: 0.1.0
 
-namespace CS2HonuShared
+namespace CS2Shared.RiverMochi
 {
-    using Colossal.Localization;   // LocalizationDictionary
-    using Game.SceneFlow;          // GameManager
-    using System;                  // Exception, FormatException
-    using System.Globalization;    // CultureInfo
+    using Colossal.Localization;
+    using Game.SceneFlow;
+    using System;
+    using System.Globalization;
 
     public static class LocaleUtils
     {
@@ -31,7 +27,8 @@ namespace CS2HonuShared
 
             try
             {
-                LocalizationDictionary? dict = GameManager.instance?.localizationManager?.activeDictionary;
+                // During early load the active dictionary may be unavailable; fallback keeps UI safe.
+                LocalizationDictionary? dict = GameManager.instance.localizationManager.activeDictionary;
                 if (dict != null && dict.TryGetValue(entryId, out string value) && !string.IsNullOrEmpty(value))
                 {
                     return value;
@@ -50,6 +47,7 @@ namespace CS2HonuShared
 
             try
             {
+                // Locale strings are hand-edited, so tolerate a bad placeholder count.
                 return string.Format(CultureInfo.CurrentCulture, format, args);
             }
             catch (FormatException)
@@ -70,9 +68,9 @@ namespace CS2HonuShared
         }
 
         public static string FormatN0(long value)
-            => value.ToString("N0", CultureInfo.CurrentCulture);
-
-        public static string FormatN0(double value)
-            => Math.Round(value).ToString("N0", CultureInfo.CurrentCulture);
+        {
+            // Shared number formatting keeps UI rows and log reports visually consistent.
+            return value.ToString("N0", CultureInfo.CurrentCulture);
+        }
     }
 }

@@ -1,4 +1,4 @@
-# File: .editorconfig version 0.6.3
+# File: .editorconfig version 0.6.8
 # Purpose:
 #   - Consistent whitespace + LF line endings across normal repo files.
 #   - CRLF for classic Visual Studio .sln files.
@@ -41,7 +41,6 @@ indent_size = 4
 end_of_line = crlf
 indent_size = 4
 
-
 # =========================
 # Web/UI/config assets
 # LF comes from global default.
@@ -50,7 +49,6 @@ indent_size = 4
 [*.{ts,tsx,js,jsx,mjs,css,scss,html,json,jsonc,yml,yaml}]
 indent_size = 2
 
-
 # =========================
 # Markdown
 # Keep trailing whitespace because Markdown sometimes uses it intentionally.
@@ -58,14 +56,23 @@ indent_size = 2
 [*.md]
 trim_trailing_whitespace = false
 
-
 # =========================
 # C# files
 # =========================
 [*.cs]
-dotnet_diagnostic.IDE0073.severity = warning
-file_header_template = <copyright file="{fileName}" company="River-Mochi">\nCopyright (c) 2026 River-Mochi. All rights reserved.\nLicensed under the MIT License. You may not use this file except in compliance with this License.\nSee LICENSE file in the project root for full license information.\nThis notice and the MIT License notice must be kept with\nall copies or substantial portions of this code.\n================= </copyright> ======================
+# Public CS2 settings members are reflection entry points.
+dotnet_code_quality.CA1822.api_surface = private, internal
 
+# Sort usings without adding blank lines between namespace groups.
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+
+# Show unused usings, but do not remove them automatically.
+dotnet_diagnostic.IDE0005.severity = suggestion
+dotnet_diagnostic.IDE0073.severity = warning
+
+# Do not use backslash for header template, this needs normal quotes.
+file_header_template = <copyright file="{fileName}" company="River-Mochi">\nCopyright (c) 2026 River-Mochi. All rights reserved.\nLicensed under the GNU General Public License v3.0 or later,\nwith the Cities: Skylines II Linking Exception.\nSee LICENSE and LICENSE-EXCEPTION in the project root.\nThis notice MUST be kept with copies or substantial portions of this code.\n================= </copyright> ======================
 indent_size = 4
 
 # ---- Namespace policy: flat namespace allowed ----
@@ -129,10 +136,10 @@ dotnet_naming_symbols.private_static_fields.applicable_kinds = field
 dotnet_naming_symbols.private_static_fields.applicable_accessibilities = private
 dotnet_naming_symbols.private_static_fields.required_modifiers = static
 
-# All const fields, any accessibility
-dotnet_naming_symbols.const_fields.applicable_kinds = field
-dotnet_naming_symbols.const_fields.applicable_accessibilities = *
-dotnet_naming_symbols.const_fields.required_modifiers = const
+# Public const fields use normal public API PascalCase.
+dotnet_naming_symbols.public_const_fields.applicable_kinds = field
+dotnet_naming_symbols.public_const_fields.applicable_accessibilities = public
+dotnet_naming_symbols.public_const_fields.required_modifiers = const
 
 # Non-public const fields
 # Defensive extra rule so private/internal consts stay kName.
@@ -189,12 +196,19 @@ dotnet_naming_rule.private_static_fields_s_prefix.symbols = private_static_field
 dotnet_naming_rule.private_static_fields_s_prefix.style = s_prefix_pascal
 dotnet_naming_rule.private_static_fields_s_prefix.severity = suggestion
 
-# Const fields: kConstantName
-dotnet_naming_rule.const_fields_k_prefix.symbols = const_fields
-dotnet_naming_rule.const_fields_k_prefix.style = k_prefix_pascal
-dotnet_naming_rule.const_fields_k_prefix.severity = suggestion
+# Public constants: PascalCase
+dotnet_naming_rule.public_const_fields_pascal.symbols = public_const_fields
+dotnet_naming_rule.public_const_fields_pascal.style = pascal
+dotnet_naming_rule.public_const_fields_pascal.severity = suggestion
 
 # Non-public const fields: kConstantName
 dotnet_naming_rule.non_public_const_fields_k_prefix.symbols = non_public_const_fields
 dotnet_naming_rule.non_public_const_fields_k_prefix.style = k_prefix_pascal
 dotnet_naming_rule.non_public_const_fields_k_prefix.severity = suggestion
+
+# =========================
+# Shared MIT utilities
+# These files are reused by both MIT and GPL mods.
+# =========================
+[Utils/*.cs]
+file_header_template = <copyright file=\"{fileName}\" company=\"River-Mochi\">\nCopyright (c) 2026 River-Mochi. All rights reserved.\nLicensed under the MIT License.\nSee LICENSE-MIT in the project root for full license information.\nThis notice and the MIT License notice must be kept with\nall copies or substantial portions of this code.\n================= </copyright> ======================

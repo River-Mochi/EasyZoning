@@ -1,13 +1,13 @@
-# <copyright file="Update-PublishConfig.ps1" company="River-Mochi">
-# Copyright (c) 2026 River-Mochi. All rights reserved.
-# Licensed under the MIT License. You may not use this file except in compliance with this License.
-# See LICENSE file in the project root for full license information.
-# This notice and the MIT License notice must be kept with
-# all copies or substantial portions of this code.
+﻿# <copyright file="Update-PublishConfig.ps1" company="River-Mochi">
+# Copyright (C) 2026 River-Mochi.
+# Licensed under the GNU General Public License v3.0 or later,
+# with the Cities: Skylines II Linking Exception.
+# See LICENSE and LICENSE-EXCEPTION in the project root.
+# Copyright and license notices MUST be preserved.
 # ================= </copyright> ======================
 
 # File: Update-PublishConfig.ps1
-# Version: 0.6.0
+# Version: 0.6.1
 # Purpose:
 #   - Sync <ModVersion Value="..."/> in PublishConfiguration.xml to csproj <Version>.
 #   - Optionally sync <GameVersion Value="..."/> to csproj <GameVersion>.
@@ -133,11 +133,24 @@ function Set-PublishTagValue([string]$s, [string]$tagName, [string]$value, [stri
 }
 
 function Strip-LeadingBomChar([string]$text) {
-  # If the file decoded with a leading BOM char, strip it before further work.
+  # Defensive cleanup in case a decoded string still contains U+FEFF.
   if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) {
     return $text.Substring(1)
   }
   return $text
+}
+
+function Test-Utf8Bom([string]$filePath) {
+  # Detect the UTF-8 BOM from raw bytes. StreamReader/ReadAllText can consume
+  # the BOM during decoding, so string comparison alone cannot reliably detect it.
+  $bytes = [System.IO.File]::ReadAllBytes($filePath)
+
+  return (
+    $bytes.Length -ge 3 -and
+    $bytes[0] -eq 0xEF -and
+    $bytes[1] -eq 0xBB -and
+    $bytes[2] -eq 0xBF
+  )
 }
 
 function Test-RepoMarker([string]$dir) {
@@ -236,6 +249,7 @@ function Update-ModJsonVersions(
   $skippedNoKey = 0
 
   foreach ($f in $files) {
+    $jsonHadBom = Test-Utf8Bom $f.FullName
     $jsonOriginal = [System.IO.File]::ReadAllText($f.FullName, $utf8Encoding)
     $jsonOriginal = Strip-LeadingBomChar $jsonOriginal
 
@@ -254,7 +268,7 @@ function Update-ModJsonVersions(
     $jsonUpdated = Normalize-Eol $jsonUpdated $jsonEol
     $jsonUpdated = Ensure-FinalNewline $jsonUpdated $jsonEol
 
-    if ($jsonUpdated -eq $jsonOriginal) {
+    if (-not $jsonHadBom -and $jsonUpdated -eq $jsonOriginal) {
       $relNoChange = Get-DisplayRelativePath $searchRoot $f.FullName
       Write-Host ("mod.json: already {0}: {1}" -f $versionValue, $relNoChange)
       continue
@@ -280,6 +294,7 @@ function Update-ModJsonVersions(
 # Step 1: read and validate PublishConfiguration.xml
 # -----------------------------------------------------
 
+$publishHadBom = Test-Utf8Bom $Path
 $original = [System.IO.File]::ReadAllText($Path, $utf8NoBom)
 $original = Strip-LeadingBomChar $original
 
@@ -319,7 +334,8 @@ if ($Eol -eq 'crlf') {
   if ($text -match "`r(?!`n)")  { throw "Internal error: bare CR found (would create MIXED): $Path" }
 }
 
-$publishChanged = ($text -ne $original)
+# A BOM-only difference still requires a rewrite because output must be UTF-8 without BOM.
+$publishChanged = $publishHadBom -or ($text -ne $original)
 
 # -----------------------------------------------------------
 # Step 3: write PublishConfiguration.xml only if changed
@@ -327,14 +343,14 @@ $publishChanged = ($text -ne $original)
 
 if ($publishChanged) {
   $bak = "$Path.bak"
-  [System.IO.File]::WriteAllText($bak, $original, $utf8NoBom)
+  Copy-Item -Force -LiteralPath $Path -Destination $bak
 
   $tmp = "$Path.tmp"
   [System.IO.File]::WriteAllText($tmp, $text, $utf8NoBom)
   Move-Item -Force -LiteralPath $tmp -Destination $Path
 
-  Write-Host ("PublishConfiguration.xml updated: ModVersion=[{0}] GameVersion=[{1}] EOL=[{2}] LeftAlignBlocks=[{3}] BACKUP=[{4}]" -f `
-    $Version, $gameVersionLog, $Eol, $LeftAlignBlocks.IsPresent, (Split-Path -Leaf $bak))
+  Write-Host ("PublishConfiguration.xml updated: ModVersion=[{0}] GameVersion=[{1}] EOL=[{2}] LeftAlignBlocks=[{3}] BOMRemoved=[{4}] BACKUP=[{5}]" -f `
+    $Version, $gameVersionLog, $Eol, $LeftAlignBlocks.IsPresent, $publishHadBom, (Split-Path -Leaf $bak))
 } else {
   Write-Host ("No PublishConfiguration.xml change needed (ModVersion=[{0}], GameVersion=[{1}], formatting already clean)." -f $Version, $gameVersionLog)
 }
